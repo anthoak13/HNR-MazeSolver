@@ -236,7 +236,29 @@ unless that hurts.
   within 3 points; breakout in 15–31%.
 - *Runs:* `mix_1-1-1`, seeds 0 and 1.
 
-**Status:** submitted.
+**Results:**
+
+| Run | Open | Interior break | Outside only | Enclosed | Shortcut: went outside |
+|---|---|---|---|---|---|
+| baseline 3:2:2, new cell 0.005 (seeds 0/1/2) | 99.0–99.6% | 90.8–93.0% | ~97.7% | 16–31% | 4–11% |
+| new cell 0.002, seed 0 | 98.8% | 91.0% | 99.2% | 19.2% | 12% |
+| new cell 0.002, seed 1 | 98.8% | 91.8% | 97.0% | 31.4% | 4% |
+| **mix 1:1:1, seed 0** | 99.4% | 94.0% | 97.6% | **35.8%** | **27%** |
+| **mix 1:1:1, seed 1** | 99.6% | 90.8% | 98.2% | **74.2%** | **46%** |
+
+**Evaluation:**
+- **H7: failed.** New cell 0.002 behaves like 0.005: shortcut 4–12%, breakout in the baseline band. The
+  shortcut effect needs the exploration reward at zero, not merely small.
+- **H8: failed, in a useful direction.** The equal mix is *not* like 3:2:2. It raises the breakout from
+  16–31% to **36–74%**, and the p.7 outside shortcut from 4–11% to **27–46%**. Open, interior_break and
+  outside_only are unchanged.
+  - **Likely reason:** fewer open mazes (1/3 vs 3/7) means more practice at the two component skills.
+    That fits round 1: removing either component kills the breakout. More of both strengthens it.
+- **Decision:** the default mix becomes **1:1:1**. It's the simplest choice (no extrapolation from the
+  figures), and it shows both of the article's behaviors at a rate visible in class. The exploration
+  reward stays at **+0.005**: the article says there was one, and 0.002 gains nothing.
+- **Seed spread on enclosed** under 1:1:1 is very large (36% vs 74%). The shipped `base` should be
+  chosen from several seeds and reported with that spread.
 
 ---
 
