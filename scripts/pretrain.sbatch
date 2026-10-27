@@ -16,6 +16,7 @@
 #SBATCH --time=02:00:00
 #SBATCH --output=logs/%x_%a.out
 #SBATCH --partition=gpus
+#SBATCH --exclude=odin   # odin: P100 (sm_60) is unsupported by this torch build, and /dev/nvidia-uvm is missing
 
 set -euo pipefail
 mkdir -p logs
