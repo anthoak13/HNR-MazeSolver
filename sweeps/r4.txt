@@ -1,0 +1,4 @@
+new_0.002_s0 --reward new_cell=0.002
+new_0.002_s1 --reward new_cell=0.002 --seed 1
+mix_1-1-1_s0 --setting maze_mix=1,1,1
+mix_1-1-1_s1 --setting maze_mix=1,1,1 --seed 1

@@ -179,4 +179,61 @@ blocks it.**
 
 **Runs:** `new_0_s1`, `new_0_s2`, `new_0.05`, `new_0.05_nofilter`.
 
+**Results:**
+
+| Run | Open | Interior break | Outside only | Enclosed | Shortcut: went outside | Moves outside, open mazes | Score, open mazes |
+|---|---|---|---|---|---|---|---|
+| new cell 0, seed 0 | 98.4% | 89.8% | 97.6% | 16.4% | **38%** | 4.7 | 4.80 |
+| new cell 0, seed 1 | 98.8% | 92.2% | 98.4% | 34.4% | **49%** | 5.3 | 4.81 |
+| new cell 0, seed 2 | 99.0% | 93.0% | 96.4% | 31.4% | **30%** | 5.3 | 4.82 |
+| new cell +0.05, filter on | 97.8% | 77.8% | 95.0% | 2.0% | 97% | **36.0** | 7.08 |
+| new cell +0.05, filter off | 99.4% | 89.0% | 96.4% | 0.0% | 100% | **37.2** | 7.14 |
+
+**Evaluation:**
+- **H5: confirmed.** With no exploration reward, the agent takes the p.7 outside shortcut in 30–49% of
+  attempts across three seeds, against 4–11% at baseline. Its breakout rate is unaffected (16–34%, the
+  baseline band).
+  - My back-of-envelope arithmetic for *why* doesn't hold up when redone carefully. The cell counts and
+    discounting are too crude to predict the crossover. The effect itself is robust.
+- **H6: half right.**
+  - The exploration reward of +0.05 produces clear **reward hacking.** The agent tours the outside, about
+    36 moves, about 8× the baseline, harvesting exploration points, and only then goes for the flag. Its
+    score rises from 4.8 to 7.1.
+  - As a side effect, the breakout collapses (0–2%), and interior_break success falls to 78%.
+  - **But the filter doesn't matter**, contrary to my prediction. The hacking agent still finishes inside
+    the maze, so it never trips a rule that only catches attempts ending outside.
+  - For teaching, that's arguably the better lesson: *a monitor that checks only the outcome misses an
+    agent that games the process.*
+- **The exploration reward has a non-monotonic effect on the p.7 behavior** (seed 0):
+
+  | New cell | 0 | 0.005 | 0.02 | 0.05 |
+  |---|---|---|---|---|
+  | Shortcut: went outside | 38% | 8% | 22% | 97% |
+
+  The two ends are different mechanisms: taking the outside because it's shorter, vs. farming the
+  outside.
+
+---
+
+## Round 4: Choosing the defaults
+
+The article says there *was* a reward for exploring [A], so the base agent can't use new cell 0. The
+figures don't imply a maze mix, so the default should be the simplest choice, equal shares (1:1:1),
+unless that hurts.
+
+**H7: a small exploration reward keeps both of the article's behaviors.**
+- *Hypothesis:* new cell +0.002 sits between 0 (strong shortcut-taking) and 0.005 (little).
+- *Predictions:*
+  - Shortcut went outside **15–35%**.
+  - Breakout in the baseline band (≥ 15%).
+  - Open, interior_break and outside_only within 3 points of baseline.
+- *Runs:* `new_0.002`, seeds 0 and 1.
+
+**H8: an equal mix (1:1:1) behaves like 3:2:2.**
+- *Hypothesis:* a slightly larger share of open mazes isn't what drives anything. Each skill just needs
+  enough examples.
+- *Predictions:* every test within the seed noise of the baseline: open, interior_break and outside_only
+  within 3 points; breakout in 15–31%.
+- *Runs:* `mix_1-1-1`, seeds 0 and 1.
+
 **Status:** submitted.
