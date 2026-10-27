@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mazerl"
+version = "0.1.0"
+description = "Maze-solving reinforcement learning agents for the HNR-1303 classroom activity"
+requires-python = ">=3.9"
+dependencies = ["numpy", "torch", "matplotlib", "ipython", "tqdm"]
+
+[tool.setuptools.packages.find]
+include = ["mazerl*"]
+
+[tool.setuptools.package-data]
+mazerl = ["player/*.js", "player/*.css", "pretrained/*.pt", "scenarios/*.txt"]
