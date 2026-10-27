@@ -93,8 +93,13 @@ class _Pool:
 
 
 def train(rewards=None, settings=None, start_from=None, device=None, progress=True,
-          checkpoint_at=(), bank=None, **overrides):
-    """Train an agent. ``overrides`` set fields of Settings (e.g. episodes=5000, discount=0.95)."""
+          checkpoint_at=(), bank=None, perception=None, freeze_perception=False, **overrides):
+    """Train an agent. ``overrides`` set fields of Settings (e.g. episodes=5000, discount=0.95).
+
+    start_from: continue training a whole agent (Run or Agent).
+    perception: start from pretrained perception only (an Agent, or its perception_state()); the
+        deciding layers start fresh. freeze_perception keeps those pretrained weights fixed.
+    """
     rewards = rewards or Rewards()
     s = Settings(**{**asdict(settings or Settings()), **overrides})
     device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
@@ -105,7 +110,10 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
     if start_from is not None:
         src = start_from.agent if isinstance(start_from, Run) else start_from
         agent.load_state_dict(src.state_dict())
-    opt = torch.optim.Adam(agent.parameters(), lr=s.learning_rate)
+    if perception is not None:
+        agent.load_perception(perception)
+    agent.freeze_perception(freeze_perception)
+    opt = torch.optim.Adam([p for p in agent.parameters() if p.requires_grad], lr=s.learning_rate)
     env = MazeEnv(bank, s.n_envs, rewards, s.max_steps, device, seed=s.seed, bypass_rule=s.bypass_rule)
     scale = max(abs(v) for v in rewards.as_dict().values()) or 1.0   # rewards -> [-1, 1]
 

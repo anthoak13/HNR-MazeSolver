@@ -36,7 +36,7 @@ RUNS = {
 
 
 def job(name, episodes, threads, device, out, seed, extra_rewards=None, extra_settings=None, save_as=None,
-        evaluate=0, start_from=None):
+        evaluate=0, start_from=None, perception=None, freeze=False):
     torch.set_num_threads(threads)
     reward_changes, overrides = RUNS[name]
     rewards = Rewards(**{**reward_changes, **(extra_rewards or {})})
@@ -44,7 +44,11 @@ def job(name, episodes, threads, device, out, seed, extra_rewards=None, extra_se
     if episodes:
         overrides["episodes"] = episodes
     base = Run.load(start_from) if start_from else None
-    run = train(rewards, device=device, progress=False, checkpoint_at=STAGES, start_from=base, **overrides)
+    if perception:
+        from mazerl.perception import Pretrained
+        perception = Pretrained.load(perception).agent
+    run = train(rewards, device=device, progress=False, checkpoint_at=STAGES, start_from=base,
+                perception=perception, freeze_perception=freeze, **overrides)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{save_as or name}.pt"
     run.save(path)
@@ -52,6 +56,8 @@ def job(name, episodes, threads, device, out, seed, extra_rewards=None, extra_se
         report = standard_report(run, n=evaluate)
         summary = {"name": save_as or name, "seed": seed, "minutes": run.seconds / 60,
                    "start_from": str(start_from) if start_from else None,
+                   "perception": "frozen" if (perception is not None and freeze) else
+                                 "pretrained" if perception is not None else "none",
                    "rewards": rewards.as_dict(), "settings": {k: v for k, v in overrides.items()},
                    "final_training_success": run.history["success"][-1], "tests": report}
         (out / f"{save_as or name}.json").write_text(json.dumps(summary, indent=1, default=str))
@@ -78,6 +84,8 @@ def main():
     ap.add_argument("--setting", action="append", default=[], help="override a setting, e.g. maze_mix=0.3,0.4,0.3")
     ap.add_argument("--name", default=None, help="file name for a one-off experiment")
     ap.add_argument("--start-from", default=None, help="fine-tune this saved run instead of starting fresh")
+    ap.add_argument("--perception", default=None, help="start from this pretrained perception (deciding layers fresh)")
+    ap.add_argument("--freeze-perception", action="store_true")
     ap.add_argument("--evaluate", type=int, default=0, help="after training, run the standard test suite "
                     "with this many attempts per test and save <name>.json")
     a = ap.parse_args()
@@ -92,7 +100,7 @@ def main():
     if (extra_r or extra_s or a.name) and len(names) != 1:
         ap.error("--reward/--setting/--name apply to a single run")
     args = [(n, a.episodes, a.threads, a.device, a.out, a.seed, extra_r, extra_s, a.name, a.evaluate,
-             a.start_from) for n in names]
+             a.start_from, a.perception, a.freeze_perception) for n in names]
     if len(args) == 1:
         job(*args[0])
     else:

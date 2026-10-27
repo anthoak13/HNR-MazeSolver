@@ -111,7 +111,7 @@ def _divide(g, rng, r0, r1, c0, c1, doors, max_room):
 
 
 KINDS = ("open", "interior_break", "outside_only")
-MIX = (3 / 7, 2 / 7, 2 / 7)     # share of each kind among the article's 7 training figures
+MIX = (1 / 3, 1 / 3, 1 / 3)     # equal shares of open / interior_break / outside_only
 FLAG_ZONE = (10, 14)             # every figure puts the flag in rows and columns 10-14
 
 

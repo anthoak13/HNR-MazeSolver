@@ -5,6 +5,7 @@ from torch import nn
 from .env import OBS_CHANNELS, CROP, N_COMPASS
 
 N_ACTIONS = 4
+PERCEPTION = ("vision.", "reasoning.0.")     # the perceiving part; the rest decides
 
 
 class Agent(nn.Module):
@@ -29,9 +30,30 @@ class Agent(nn.Module):
         self.policy = nn.Linear(hidden, N_ACTIONS)
         self.value = nn.Linear(hidden, 1)
 
+    def perceive(self, obs, compass):
+        """The perceiving part: vision plus the first reasoning layer (100 features)."""
+        return self.reasoning[1](self.reasoning[0](torch.cat([self.vision(obs), compass], 1)))
+
     def forward(self, obs, compass):
-        z = self.reasoning(torch.cat([self.vision(obs), compass], 1))
+        z = self.reasoning[3](self.reasoning[2](self.perceive(obs, compass)))
         return self.policy(z), self.value(z).squeeze(1)
+
+    def perception_state(self):
+        return {k: v.detach().cpu().clone() for k, v in self.state_dict().items() if k.startswith(PERCEPTION)}
+
+    def load_perception(self, state):
+        """Copy in pretrained perception weights; the deciding layers are left as they are."""
+        if isinstance(state, Agent):
+            state = state.perception_state()
+        missing = [k for k in self.state_dict() if k.startswith(PERCEPTION) and k not in state]
+        if missing:
+            raise ValueError(f"perception weights missing: {missing}")
+        self.load_state_dict({**self.state_dict(), **state})
+
+    def freeze_perception(self, frozen=True):
+        for name, p in self.named_parameters():
+            if name.startswith(PERCEPTION):
+                p.requires_grad_(not frozen)
 
     def act(self, obs, compass, greedy=False):
         logits, value = self(obs, compass)
