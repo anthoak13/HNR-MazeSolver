@@ -343,4 +343,36 @@ behavior with RL.
   - The breakout needs more skill than 20k attempts provide from scratch, so it will be **under 5%** from
     scratch; with pretraining **at least 10%**.
 
-**Status:** being built.
+**Results** (desktop i5-13400F, 2 threads per run, three runs side by side; maze mix 1:1:1):
+
+Pretraining took **2.8 min**. On mazes it never trained on, map completion was **86%** accurate on unseen
+cells (53% by always guessing the most common cell), and frontier direction **99.2%** (25% by chance).
+
+| Setup (20k attempts) | Time to 50% success | Time to 80% success | Total time | Open | Interior break | Outside only | Enclosed | Shortcut: went outside |
+|---|---|---|---|---|---|---|---|---|
+| from scratch | 5.6 min | 11.7 min | 13.0 min | 92.6% | 68.2% | 72.0% | 5.2% | 52% |
+| pretrained, frozen | 2.3 min | never | 8.8 min | 78.2% | 32.6% | 42.6% | 0.6% | 45% |
+| pretrained, still learning | 4.8 min | 8.7 min | 11.8 min | 94.0% | 58.4% | 87.4% | 10.2% | 30% |
+
+The time-to-success columns use training success, averaged over 5 log points.
+
+**Evaluation against the predictions:**
+
+| Prediction | Result |
+|---|---|
+| From scratch at 20k: open 65–75% | **92.6%.** The 20k schedule finishes annealing within 20k attempts, so a short run does better than the same point on a 126k run's curve |
+| Pretrained runs: open ≥ 85% | still learning ✓ (94%); frozen ✗ (78%) |
+| Breakout: from scratch < 5%, pretrained ≥ 10% | from scratch 5.2% (just over); still learning ✓ (10.2%); frozen ✗ (0.6%) |
+| Pretraining under 10 min | ✓ (2.8 min) |
+
+**Conclusions:**
+- **Freezing the pretrained part doesn't work.** The roughly 10k deciding parameters alone can't learn
+  the task.
+- **Pretraining that keeps learning gives a small speed-up:** 80% success about 3 min sooner. That's
+  roughly offset by the 2.8 min the pretraining itself takes, unless the pretrained model is shipped.
+- **On 2 CPU threads, nothing reaches good behavior within 3–5 min.** That makes CPU-only class use a
+  "predict, start it, come back" activity, not live tuning.
+- **Still to measure:** the Colab T4. The A30 does 126k attempts in about 5 min. If a T4 is 2–3× slower,
+  20k attempts would take 1–2 min, which would make live tuning feasible. That needs the benchmark
+  notebook result.
+- **Pretraining's case rests on reuse** (PLAN §10), not speed on the main task.
