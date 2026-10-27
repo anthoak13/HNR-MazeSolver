@@ -15,17 +15,14 @@
 #SBATCH --mem=8G
 #SBATCH --time=02:00:00
 #SBATCH --output=logs/%x_%a.out
-# ---- cluster-specific: fill in or delete --------------------------------------------------
-##SBATCH --partition=CHANGE_ME
-##SBATCH --account=CHANGE_ME
-# -------------------------------------------------------------------------------------------
+#SBATCH --partition=gpus
 
 set -euo pipefail
 mkdir -p logs
 
-# Environment: a venv with this repo installed (pip install -e .). Adjust to your cluster,
-# e.g. `module load python cuda` before activating.
-source .venv/bin/activate
+# Environment: a venv with this repo installed (pip install -e .). On the HPU cluster that's
+# ~/pytorch/.venv (torch 2.9 + CUDA 12.8); override with VENV=/path/to/venv.
+source "${VENV:-$HOME/pytorch/.venv}/bin/activate"
 
 NAMES=($(python scripts/pretrain.py --list))
 NAME=${NAMES[$SLURM_ARRAY_TASK_ID]}
