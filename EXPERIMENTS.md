@@ -414,30 +414,28 @@ the class budgets, using the current defaults: mix 1:1:1, new cell +0.005, wall 
 
 ---
 
-## Round 8: Can a smaller network make CPU-only class use workable?
+## Round 8: How do competence and the emergent breakout scale with model size?
 
-On CPU (Colab's 1-thread CPU, or a TPU runtime's 12 threads), 20k attempts from scratch take about 13
-min. Thread count barely helps, which suggests per-step cost dominates. The network size is a teaching
-choice, not something to copy from the article, so it's free to shrink.
+The breakout combines skills, and the network has to hold all of them at once. In LLMs, some abilities
+appear only above a certain model size. Does anything like that happen here?
 
-**H12: a smaller network trains much faster on CPU and still learns the task well within 20k attempts.**
-- *Sizes:*
+**H12: the common skills saturate at small sizes, but the breakout needs capacity.**
+- *Sizes*, each trained at full scale (126k attempts, current defaults, mix 1:1:1) on the cluster
+  GPUs, seeds 0 and 1:
 
   | Size | Vision channels | Hidden | Connections |
   |---|---|---|---|
-  | default | 32/64/64 | 100 | 229k |
-  | small | 16/32/32 | 64 | 71k |
   | tiny | 16/16/16 | 32 | 20k |
+  | small | 16/32/32 | 64 | 71k |
+  | default | 32/64/64 | 100 | 229k (round 4's `mix_1-1-1` runs, seeds 0 and 1) |
+  | large | 64/128/128 | 256 | 1.1M |
 
-- *Runs:* all three, from scratch, 20k attempts, 2 CPU threads each, run side by side locally.
 - *Predictions:*
-  - **Speed:**
-    - small ≥ 2× the default's attempts per second;
-    - tiny ≥ 3×;
-    - the gains capped by the environment and Python overhead.
-  - **Learning at 20k:** small within 3 points of the default on open and outside_only; tiny ≥ 80% on
-    open, weaker on interior_break.
-  - **Breakout:** about 5% for all three; 20k attempts is too few.
+  - **open:** at least 95% at every size. It's easy.
+  - **interior_break:** rises with size: tiny about 70%, small about 85%, default and large about 92%.
+  - **Breakout on enclosed:** rises with size: tiny **under 5%**, small **10–30%**, default 36–74%
+    (measured), large **at or above the default**. If the breakout appears only above some size while
+    open-maze success is already saturated, that's an "emergence with scale" result for class.
+  - **Shortcut:** follows the breakout. Larger models take the outside route more.
 
-**Status:** dropped before running. The class targets a T4, so CPU speed isn't a goal. The
-`net_channels` / `net_hidden` settings stay available.
+**Status:** submitted, queued behind round 7.

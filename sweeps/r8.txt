@@ -1,0 +1,6 @@
+tiny_s0 --setting net_channels=16,16,16 --setting net_hidden=32
+tiny_s1 --setting net_channels=16,16,16 --setting net_hidden=32 --seed 1
+small_s0 --setting net_channels=16,32,32 --setting net_hidden=64
+small_s1 --setting net_channels=16,32,32 --setting net_hidden=64 --seed 1
+large_s0 --setting net_channels=64,128,128 --setting net_hidden=256
+large_s1 --setting net_channels=64,128,128 --setting net_hidden=256 --seed 1
