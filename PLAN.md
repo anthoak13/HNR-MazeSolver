@@ -39,7 +39,13 @@ Every rule below is tagged with where it comes from:
 duplicate one random interior row and one random interior column to get 14 × 14. The duplication gives the
 mixed 1–2-cell walls and corridors seen in the figures. Then open the top-left entrance and place the flag
 (a minimum path distance from the start). Weak spots go on wall cells that have open cells on two opposite
-sides, so each one "opens into a passage" [A]. The generator gets checked by eye against the figures
+sides, so each one "opens into a passage" [A].
+
+**Mazes that require breaking a wall** [A] "They *must* probe walls to discover weak spots that open into
+passages": a share of training mazes (`locked_frac`, default 0.5 [D]) seal the flag's region off from the
+start, so the only way in is through an *interior* weak spot. In those mazes the sealed region never
+touches an outer-wall weak spot, so training never contains the "go outside and break back in" route
+[A] "we did not train it what to do in this exact scenario". The generator gets checked by eye against the figures
 before anything is built on it.
 
 Layouts are *stored* as ASCII art, the same convention as the paper's environments [P]. That covers the
@@ -264,7 +270,7 @@ pyproject.toml               pip-installable from GitHub
 ---
 
 ## 6. Milestones (I build and debug; you review at each ✔)
-1. **World:** generator, environment mechanics, article-style static rendering. Tests for: probe/break
+1. **World + player:** generator, environment mechanics, and the NYT-style animated player (random agents to start). Tests for: probe/break
    rules, outside penalty, line-of-sight occlusion, compass, bypass detection, every maze solvable.
    ✔ You compare rendered mazes with the PDF.
 2. **Benchmark notebook.** ✔ You run it on Colab CPU and on a T4. I update §3 with real numbers and set
@@ -285,9 +291,10 @@ pyproject.toml               pip-installable from GitHub
 ## 7. Risks
 - **The emergent "break back in" may not reproduce.** Nothing in training rewards that exact sequence;
   the article's point is that it emerges. Emergence can fail for concrete reasons:
-  1. **It's three skills chained together:** leave the maze, travel outside, and probe a wall *from the
-     outside*. Bypass episodes are excluded and outside steps are penalized, so the agent rarely spends
-     long outside during training. Its skills there are under-practiced.
+  1. **It's three skills chained together:** leave the maze, travel outside, and break a wall *to get back
+     in*. Each piece is practiced in training: the start borders the outside, outer weak spots exist, and
+     `locked_frac` mazes require breaking interior walls. Only the combination is new at test time, which
+     is the article's point. The risk is that the combination doesn't transfer, not that a piece is missing.
   2. **The view from outside looks different.** In training, the agent probes walls from inside the maze.
      Seen from outside, the same wall sits next to outside cells, a combination it has rarely seen. The
      cited paper's lava-world experiment [P] shows agents like this often fail under exactly this kind of
@@ -305,7 +312,7 @@ pyproject.toml               pip-installable from GitHub
 
   Milestone 5 measures it. It's reported with a frequency, for example "in 37% of attempts," not
   cherry-picked. If it's rare or absent, the legitimate levers are the reward values (2–4) and how often
-  training mazes have reachable outer weak spots (1–2). We never script the behavior. A model that only
+  training mazes have reachable outer weak spots and require wall breaking (1–2). We never script the behavior. A model that only
   sometimes breaks in is also a good discussion point.
 - **A2C can be unstable.** The paper reports occasional "entropy collapse" and drops its worst 25% of
   seeds [P]. Mitigations: the entropy floor from [P], fixed seeds for the pretrained agents, and a
