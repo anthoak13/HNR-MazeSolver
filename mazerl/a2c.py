@@ -24,8 +24,8 @@ class Settings:
     episodes: int = 126_000       # attempts (the article: 126,000)
     layouts: int = 13_148         # distinct training layouts (the article: 13,148)
     locked_frac: float = 0.5      # share of layouts that require breaking an interior wall
-    exclude_bypass: bool = True   # leave attempts that went around the maze out of training
-    bypass_rule: str = "around"   # what counts as going around: "around", "break_in", "never_entered"
+    exclude_bypass: bool = True   # leave attempts that bypassed the maze out of training
+    bypass_rule: str = "left"     # bypass = left the maze and never came back in (see MazeEnv)
     learning_rate: float = 5e-4
     discount: float = 0.99
     exploration: float = 0.05     # entropy bonus: rewards keeping move choices varied

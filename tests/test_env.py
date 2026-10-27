@@ -96,14 +96,21 @@ def test_entering_maze_is_not_bypass():
     assert done.item() and not info["bypass"].item()
 
 
-def test_breaking_in_from_outside_is_bypass():
+def test_breaking_back_in_is_not_bypass():
     # leave by the entrance, walk outside along the top, break in through the weak spot at (2, 5)
     env, _ = make_env(max_steps=12)
     for a in (UP, RIGHT, RIGHT, RIGHT, DOWN):
         act(env, a)
-    assert arena(env) == (2, 5) and env.went_around[0]
+    assert arena(env) == (2, 5) and env.went_around[0] and env.broke_in[0]
     for _ in range(7):
         _, done, info = act(env, DOWN)
+    assert done.item() and not info["bypass"].item()
+
+
+def test_ending_outside_is_bypass():
+    env, _ = make_env(max_steps=6)
+    for a in (RIGHT, DOWN, LEFT, UP, UP, LEFT):     # into the maze, back out, stays out
+        _, done, info = act(env, a)
     assert done.item() and info["bypass"].item()
 
 

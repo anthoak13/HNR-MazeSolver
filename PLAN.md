@@ -67,7 +67,7 @@ animated article-style view (§4).
 | Vision | 5 × 5 window centered on the agent. Walls block line of sight | [A] |
 | Memory | Remembers every cell it has seen during the episode | [A] "remember past observations" |
 | Flag direction | Compass direction to the flag, one of 8 (N, NE, …) | [A] "compass direction," [D] 8-way |
-| Episode end | Agent reaches the flag, or a **100-step** cap | [P] "maximal episode length 100 steps," goal ends the episode |
+| Episode end | Agent reaches the flag, or a **200-step** cap | [P] uses 100 steps for grids ≤10×10; ours is 18×18, and at 100 steps every failure was a timeout (success 70% vs 91–94% at 200 in full-scale runs) [D] |
 | Multiple agents | "One or more agents" share a maze, move independently and never block each other. Mostly used for visuals | [A] figures show several, [D] no interaction |
 
 ### Rewards (student-tunable)
@@ -84,22 +84,19 @@ The [D] values are starting points. Milestone 3 tunes them until the base agent 
 mazes, and the final values get recorded here.
 
 ### "Training excluded scenarios where the agent bypassed the maze entirely" [A]
-The figures show training layouts with openings near the flag (e.g. p.3), so walking around the outside
-was a real route. An attempt counts as a **bypass** [D] if the agent went *around* the maze instead of
-through it:
-- it **re-entered the maze somewhere other than where it last left**, through another opening or by
-  breaking in through an outer weak spot; or
-- it **never got more than one cell into the maze**, for example lapping the outside until time runs out.
-  This was your reading.
+**Definition (yours):** an attempt is a **bypass** if the agent *left the maze and never came back in*,
+so the attempt ends with the agent outside. Coming back in anywhere counts as going through the maze,
+whether by the same gap, another opening, or breaking through a weak spot. Bypass attempts are dropped
+from the training batch. They still count toward the 126,000 attempts, and they're logged.
 
-Bypass attempts are dropped from the training batch. They still count toward the 126,000 attempts, and
-they're logged. This rule makes the article's statement literally true: "we did not train it … to leave the
-area despite the penalties, probe the wall from the outside and break in." Breaking in from outside is
-always a bypass, so it is never reinforced.
+`exclude_bypass=False` turns the filter off (classroom experiment). `bypass_rule` keeps the alternative
+readings I tried for comparison:
+- `"never_entered"`: never got more than one cell in.
+- `"around"`: re-entered somewhere other than where it left.
+- `"break_in"`: broke in from outside.
 
-`exclude_bypass=False` turns the rule off, which is a classroom experiment. A layout-level alternative,
-`no_outside_shortcuts=True` (close openings until going around is never shorter), is available but off by
-default, because the article's own training layouts have such routes.
+Experiments showed `"around"` teaches the agent to avoid the outside almost completely, because going
+outside never pays off.
 
 ---
 

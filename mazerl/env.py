@@ -96,19 +96,17 @@ class MazeEnv:
     bank: a MazeBank of layouts to sample from.
 
     An attempt counts as a *bypass* (training leaves these out, as the article's did) if the agent
-    went around the maze instead of through it: it re-entered the maze somewhere other than where
-    it last left (through another opening, or by breaking in from outside), or it never got more
-    than one cell into the maze.
+    left the maze and never came back in: the attempt ends with the agent outside.
     """
 
     def __init__(self, bank, n_envs, rewards=None, max_steps=100, device="cpu", seed=0,
-                 auto_reset=True, maze_ids=None, bypass_rule="around"):
+                 auto_reset=True, maze_ids=None, bypass_rule="left"):
         self.n = n_envs
         self.rewards = rewards or Rewards()
         self.max_steps = max_steps
         self.device = torch.device(device)
         self.auto_reset = auto_reset
-        self.bypass_rule = bypass_rule      # "around", "break_in" or "never_entered" (see step)
+        self.bypass_rule = bypass_rule      # "left" (default), "around", "break_in", "never_entered"
         self.gen = torch.Generator(device="cpu").manual_seed(seed)
 
         dev = self.device
@@ -256,14 +254,19 @@ class MazeEnv:
         done = reached | timeout
         info = {"probe": probe, "through_wall": through, "new_cell": new, "outside": outside,
                 "reached": reached, "timeout": timeout, "probe_cell": target, "done": done}
-        # "around": re-entered somewhere other than where it left, or never entered (default)
+        # "left": left the maze and never came back in (ends outside)  <- default
+        # alternatives kept for experiments:
+        # "around": re-entered somewhere other than where it left, or never entered
         # "break_in": broke in through an outer weak spot, or never entered
-        # "never_entered": only attempts that never got into the maze
-        bypass = ~self.entered
-        if self.bypass_rule == "around":
-            bypass = bypass | self.went_around
+        # "never_entered": never got more than one cell into the maze
+        if self.bypass_rule == "left":
+            bypass = ~self.inside[self.pos[:, 0], self.pos[:, 1]]
+        elif self.bypass_rule == "around":
+            bypass = ~self.entered | self.went_around
         elif self.bypass_rule == "break_in":
-            bypass = bypass | self.broke_in
+            bypass = ~self.entered | self.broke_in
+        else:
+            bypass = ~self.entered
         info["bypass"] = done & bypass
         info["final_steps"] = self.t.clone()
         info.update({f"final_{k}": v.clone() for k, v in s.items()})

@@ -29,14 +29,17 @@ def show_maze(maze, **kwargs):
     return player.show({**maze.to_dict(), "agents": []}, **kwargs)
 
 
-def playback(agent, maze=None, n_agents=1, seed=0, rewards=None, greedy=False, **kwargs):
+def playback(agent, maze=None, n_agents=1, seed=0, rewards=None, greedy=False, max_steps=None,
+             **kwargs):
     """Animate ``n_agents`` attempts by ``agent`` (a Run, an Agent, or None for random moves)."""
     if isinstance(agent, Run):
         rewards = rewards or agent.rewards
+        max_steps = max_steps or agent.settings.max_steps
         agent = agent.agent
     maze = maze if maze is not None else random_mazes(1, seed)[0]
     maze = scenario(maze) if isinstance(maze, str) else maze
-    episode = record(agent, [maze], n_agents=n_agents, rewards=rewards, greedy=greedy, seed=seed)[0]
+    episode = record(agent, [maze], n_agents=n_agents, rewards=rewards, greedy=greedy, seed=seed,
+                     max_steps=max_steps or 100)[0]
     return player.show(episode, **kwargs)
 
 
@@ -46,23 +49,26 @@ def training_grid(run, n_mazes=3, stages=None, seed=0, **kwargs):
     mazes = random_mazes(n_mazes, seed)
     episodes = [{**m.to_dict(), "agents": []} for m in mazes]
     for k, stage in enumerate(stages):
-        recorded = record(run.agent_at(stage), mazes, rewards=run.rewards, seed=seed + k)
+        recorded = record(run.agent_at(stage), mazes, rewards=run.rewards, seed=seed + k,
+                          max_steps=run.settings.max_steps)
         for ep, rec in zip(episodes, recorded):
             for a in rec["agents"]:
                 ep["agents"].append({**a, "label": f"after {stage:,} attempts"})
     return player.show(episodes, **kwargs)
 
 
-def evaluate(agent, n=500, mazes=None, seed=12345, rewards=None, greedy=False):
+def evaluate(agent, n=500, mazes=None, seed=12345, rewards=None, greedy=False, max_steps=None):
     """How the agent does on ``n`` layouts it has never seen (or on ``mazes`` if given)."""
     if isinstance(agent, Run):
         rewards = rewards or agent.rewards
+        max_steps = max_steps or agent.settings.max_steps
         agent = agent.agent
     if mazes is None:
         mazes = random_mazes(n, seed)
     elif isinstance(mazes, str):
         mazes = [scenario(mazes)] * n
-    return _evaluate(agent, mazes, rewards=rewards, greedy=greedy, seed=seed)
+    return _evaluate(agent, mazes, rewards=rewards, greedy=greedy, seed=seed,
+                     max_steps=max_steps or 100)
 
 
 def load_pretrained(name="base"):
