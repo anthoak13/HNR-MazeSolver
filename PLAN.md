@@ -43,7 +43,8 @@ by cell in `mazerl/scenarios/training/`:
 | interior_break | p4c, p5a | inside, through an interior weak spot |
 | outside_only | p5b, p5c | out the entrance and back in through an outer opening |
 
-- **Mix:** 3 : 2 : 2, the same proportion as the figures (`maze_mix`).
+- **Mix [D]:** equal shares, 1 : 1 : 1 (`maze_mix`). The figures don't imply a split. In experiments,
+  equal shares gave the strongest version of both of the article's behaviors (`EXPERIMENTS.md`, round 4).
 - **Outer weak spots:** allowed anywhere, including next to the flag's area. The training animation shows
   an agent breaking in from outside.
 
@@ -275,7 +276,35 @@ repeats). It also left the maze instead of probing inside.
 6. Run the Colab benchmark, and set the in-class training budgets from it.
 7. Test end to end from a fresh Colab runtime. Then merge to `main`.
 
-## 10. Risks
+## 10. Possible extension: one pretrained model, several RL tasks
+
+This is the modern-LLM pattern: pretrain a model once without rewards, then use RL to make it good at
+different jobs.
+
+- **Pretraining** (built: `mazerl/perception.py`). The perceiving part of the network (vision plus the
+  first reasoning layer) learns two prediction tasks from agents exploring the training mazes, with no
+  rewards:
+  - fill in the cells of its view it hasn't seen yet;
+  - pick the move toward the nearest unexplored ground.
+
+  Neither task mentions flags, so the result isn't tied to one goal. RL then trains only the deciding
+  layers: `train(perception=..., freeze_perception=...)`.
+- **What it could show students:**
+  1. **A speed-up** on the main task, if it's large enough to matter in class (`EXPERIMENTS.md`,
+     round 6).
+  2. **Reuse:** the same pretrained model learns a *second* task with RL. That's a stronger argument for
+     pretraining than a speed-up alone. Candidate second tasks, each a small change to the reward or the
+     ending:
+     - **Escape:** start deep inside and get out of the maze. It reuses probing and finding openings.
+     - **Explore and map:** no flag; points only for new cells, within a time limit.
+     - **Collect several flags** in one attempt, which needs planning and memory.
+- **Gate:** keep pretraining in the activity only if it helps within class-sized budgets on 2 CPU
+  threads. The test would be *H11: the same pretrained perception speeds up RL on a task it was never
+  pretrained for, by about as much as on the main task.* Escape is the cheapest to try first.
+  - **If it helps:** pretraining earns a section in the notebook.
+  - **If not:** at most a short discussion of how LLMs are built.
+
+## 11. Risks
 - **The breakout may stay rare.** That would be reported honestly. The article shows one replay, so how
   often it happened for them is unknown.
 - **A2C can be unstable.** Mitigations: fixed seeds for shipped agents, and comparing several seeds before
