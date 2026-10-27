@@ -438,4 +438,22 @@ appear only above a certain model size. Does anything like that happen here?
     open-maze success is already saturated, that's an "emergence with scale" result for class.
   - **Shortcut:** follows the breakout. Larger models take the outside route more.
 
+**Added measure: chain progress on enclosed** (`mazerl.rollout.chain_progress`).
+- Each region of the enclosed maze has a **depth**: the fewest weak spots that must be broken, starting
+  from outside, to reach it. The flag is at depth 4. An attempt is scored by the deepest region it
+  reaches, by any route.
+- Run A (default size, old mix) shows the shape:
+
+  | Left the maze | Depth 1 | Depth 2 | Depth 3 | Depth 4 = flag |
+  |---|---|---|---|---|
+  | 100% | 99% | 91% | 54% | 15% |
+
+  The agent nearly always starts the chain and loses attempts with each added link.
+- *Prediction:* smaller models complete the first links as often as larger ones, but drop off sooner:
+  - tiny: depth 3 **under 20%**;
+  - small: depth 3 **30–50%**;
+  - default and large: depth 3 **at least 50%**.
+
+  "Each skill works on its own, but the chain fails" is the scale result to look for.
+
 **Status:** submitted, queued behind round 7.
