@@ -59,4 +59,60 @@ across these three runs can't be trusted.
 - *Why it matters for teaching:* if this holds, it's a clean classroom experiment. "Remove one kind of
   training maze; predict what happens to the breakout."
 
+**Results** (500 attempts per test):
+
+| Run | Open | Interior break | Outside only | Enclosed | Walls broken on enclosed | Shortcut: went outside |
+|---|---|---|---|---|---|---|
+| A (seed 0) | 99.0% | 89.6% | 97.2% | 15.0% | 3.96 | 8% |
+| base, seed 1 | 99.6% | 92.0% | 97.6% | 31.0% | 4.50 | 11% |
+| base, seed 2 | 99.2% | 93.0% | 97.6% | 16.2% | 4.25 | 4% |
+| no outside_only (1:1:0) | 99.6% | 96.8% | **14.0%** | **0.4%** | 1.75 | 1% |
+| no interior_break (1:0:1) | 98.8% | **29.8%** | 97.8% | **0.0%** | 1.39 | 0% |
+
+**Evaluation:**
+- **Question 1: noise.** Partly as predicted. Open, interior_break and outside_only are stable across
+  seeds, within about 3 points. But enclosed varies far more than predicted: **15–31%**, against the
+  predicted 8–20%. Single-run differences on enclosed under about 15 points are noise. Any claim about
+  the breakout needs several seeds.
+- **Question 2: emergence needs both parts.** Confirmed, strongly. Both predictions held with room to
+  spare:
+  - **Without outside_only mazes:** the agent can't solve them (14%), and the breakout disappears (0.4%).
+    On enclosed it probes 85 times and spends 108 moves outside, wandering and bumping, but it never
+    learned to travel to a weak spot and get back in.
+  - **Without interior_break mazes:** wall-breaking collapses (30%), and the breakout disappears (0.0%).
+    It spends 136 moves outside on enclosed, probing little.
+  - **For teaching:** the article's "combined these separately learned behaviors" can be shown directly.
+    Take away either kind of training maze and the emergent behavior vanishes. This is a candidate
+    in-class experiment.
+
+---
+
+## Round 2: Do the free rewards change behavior in ways students could predict?
+
+Here the training mix stays at 3:2:2, and one reward changes per run. With 500 attempts per test, effects
+on open, interior_break and outside_only are measurable to about ±3 points. Effects on enclosed need to be
+large (about 20 points or more) to count.
+
+**Wall penalty (`probe`; baseline −0.01).**
+- *Hypothesis:* a probe almost never pays off on its own, because most walls are solid. So the wall
+  penalty sets how willing the agent is to search walls. At −0.05, a typical 40-probe search costs −2,
+  about as much as a distant flag is worth after discounting.
+- *Predictions:*
+  - **−0.05:** probes per attempt on interior_break at least halved (under 7); interior_break success
+    **under 70%**; enclosed **under 5%**.
+  - **−0.002:** more probing (at least 18 on interior_break); interior_break success stays about 90%
+    (it's near the ceiling); enclosed at or above the baseline band.
+
+**New-cell reward (`new_cell`; baseline +0.005).**
+- *Hypothesis:* this is the article's "persistence" incentive. It makes searching pay for itself.
+- *Predictions:*
+  - **0:** the agent searches less thoroughly; enclosed, the longest search, falls **under 10%**; open and
+    outside_only roughly unchanged.
+  - **+0.02:** now larger than the outside penalty, so every new outside cell nets +0.01 and the outside
+    band becomes worth farming. Moves outside on open mazes at least **3× the baseline** (over 15, vs. 5).
+    Open success slightly lower. Enclosed **at or below** the baseline, because the agent harvests the
+    outside instead of breaking in. If so, that's reward hacking, a candidate in-class experiment.
+
+**Runs:** `wall_0.05`, `wall_0.002`, `new_0`, `new_0.02`, each at seed 0. Compare against A, seed 0.
+
 **Status:** submitted.

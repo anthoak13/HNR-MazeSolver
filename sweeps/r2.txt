@@ -1,0 +1,4 @@
+wall_0.05 --reward probe=-0.05
+wall_0.002 --reward probe=-0.002
+new_0 --reward new_cell=0.0
+new_0.02 --reward new_cell=0.02
