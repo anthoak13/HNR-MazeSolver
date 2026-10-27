@@ -1,0 +1,4 @@
+new_0_s1 --reward new_cell=0.0 --seed 1
+new_0_s2 --reward new_cell=0.0 --seed 2
+new_0.05 --reward new_cell=0.05
+new_0.05_nofilter --reward new_cell=0.05 --setting exclude_bypass=False
