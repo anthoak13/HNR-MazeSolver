@@ -439,4 +439,5 @@ choice, not something to copy from the article, so it's free to shrink.
     open, weaker on interior_break.
   - **Breakout:** about 5% for all three; 20k attempts is too few.
 
-**Status:** running locally.
+**Status:** dropped before running. The class targets a T4, so CPU speed isn't a goal. The
+`net_channels` / `net_hidden` settings stay available.
