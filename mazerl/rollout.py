@@ -119,3 +119,15 @@ def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=200, seed=0):
             "avg walls broken": round(float(final["final_breaks"].mean()), 2),
             "avg moves outside": round(float(final["final_outside"].mean()), 1),
             "avg score": round(float(final["final_return"].mean()), 2)}
+
+
+def standard_report(run, n=500, seed=99):
+    """The fixed test suite used to compare training runs: new layouts of each kind, plus the
+    article's two test mazes. Returns {test name: evaluate() results}."""
+    from .maze import KINDS, SCENARIOS, generate_maze, scenario
+    rng = np.random.default_rng(seed)
+    tests = {kind: [generate_maze(rng, kind=kind) for _ in range(n)] for kind in KINDS}
+    tests.update({name: [scenario(name)] * n for name in SCENARIOS})
+    max_steps = run.settings.max_steps
+    return {name: evaluate(run.agent, mazes, rewards=run.rewards, max_steps=max_steps, seed=seed)
+            for name, mazes in tests.items()}

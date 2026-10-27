@@ -1,0 +1,4 @@
+base_s1 --seed 1
+base_s2 --seed 2
+mix_no_outside_only --setting maze_mix=1,1,0
+mix_no_interior_break --setting maze_mix=1,0,1
