@@ -285,4 +285,62 @@ the behavior shifts we saw from scratch, and how many attempts that takes.
   - That's comfortably class-sized. If the predictions hold, students need about 20k attempts for a
     clear effect.
 
-**Status:** submitted (CPU partition, `scripts/sweep_cpu.sbatch`).
+**Results** (cluster CPU, 2 cores of an AMD EPYC 7502 per run):
+
+| Fine-tune from A | Open | Interior break | Enclosed | Shortcut: went outside | Moves outside, open mazes | Time |
+|---|---|---|---|---|---|---|
+| A, the starting agent | 99.0% | 90.8% | 17.4% | 8% | 4.7 | — |
+| control, same rewards, 20k | 98.6% | 90.2% | 11.2% | **24%** | 5.9 | 12.1 min |
+| new cell +0.05, 5k | 98.6% | 90.0% | 13.2% | 13% | 5.9 | 2.8 min |
+| new cell +0.05, 20k | 98.2% | 81.0% | 0.4% | 4% | 8.7 | 11.3 min |
+| new cell 0, 5k | 98.0% | 91.0% | 20.6% | 13% | 5.8 | 3.0 min |
+| new cell 0, 20k | 99.0% | 88.2% | 21.2% | 18% | 5.7 | 11.6 min |
+
+For comparison, training from scratch at +0.05 shows the hacking (61 moves outside per attempt) by
+10k attempts.
+
+**Evaluation: H9 failed.**
+- **The control isn't stable.** Fine-tuning with unchanged rewards shifts the shortcut rate from 8% to
+  24%, and the breakout from 17% to 11%. The fine-tuning process itself perturbs the agent, probably
+  because the exploration bonus restarts high.
+- **The reward effects are small and slow.** At +0.05, outside moves rise from 4.7 to 8.7 after 20k
+  attempts, against 36 from scratch. At new cell 0, the shortcut rate rises to 18%, which is *below* the
+  control.
+- **Why:** a converged agent has stopped exploring, so it rarely visits the states where the new reward
+  would change its choices. From scratch, the agent explores anyway and finds the new incentive at once.
+- **Time:** 20k attempts take about 12 minutes on 2 CPU cores. That's already the upper end of a class
+  budget, and it buys little.
+
+**Conclusion:** fine-tuning the full base agent is not a good classroom tool. That motivates round 6:
+pretrain only perception, with no rewards, then let students' RL build the behavior on top.
+
+---
+
+## Round 6: RL on top of reward-free pretraining
+
+This mirrors the modern LLM recipe. Pretrain a model on prediction tasks with no rewards, then shape its
+behavior with RL.
+
+- **What gets pretrained:** the perceiving part of the network, the vision layers plus the first
+  reasoning layer (about 220k of the 230k connections).
+- **Pretraining tasks** (no rewards), on agents exploring the training layouts:
+  1. **Map completion:** predict the true contents of the cells in the 11 × 11 window that the agent
+     hasn't seen yet (open, outside, wall, or edge; weak spots count as wall, so no hidden information
+     leaks).
+  2. **Frontier direction:** which move heads toward the nearest reachable cell it hasn't visited yet.
+- **What RL trains:** the deciding part (second reasoning layer, move and value outputs, about 10k
+  connections), starting fresh. The pretrained part is either frozen or allowed to keep learning.
+
+**H10: with pretrained perception, RL reaches competence in a class-sized budget.**
+- **Runs**, on 2 CPU threads locally (desktop i5-13400F), 20k attempts each:
+  - from scratch;
+  - pretrained perception, frozen;
+  - pretrained perception, still learning.
+- **Predictions:**
+  - Open-maze success at 20k attempts: from scratch **65–75%** (A's curve passed 69% at 20k); both
+    pretrained runs **at least 85%**.
+  - Pretraining itself takes **under 10 minutes** on 2 threads.
+  - The breakout needs more skill than 20k attempts provide from scratch, so it will be **under 5%** from
+    scratch; with pretraining **at least 10%**.
+
+**Status:** being built.
