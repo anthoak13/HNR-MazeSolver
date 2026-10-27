@@ -75,7 +75,7 @@ def test_break_through_weak_spot_opens_it():
         act(env, a)
     r, _, info = act(env, RIGHT)                 # (2, 5) is weak
     assert info["through_wall"].item() and arena(env) == (2, 5)
-    assert r.item() == pytest.approx(Rewards().through_wall + Rewards().new_cell)
+    assert r.item() == pytest.approx(Rewards().probe + Rewards().new_cell)   # one wall penalty
     assert env.grid[0, 2 + PAD, 5 + PAD] == FLOOR
 
 

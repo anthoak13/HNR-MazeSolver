@@ -26,7 +26,7 @@ RUNS = {
     "outside_costly": ({"outside": -0.1}, {}),
     "explore_bonus_big": ({"new_cell": 0.1}, {}),
     "explore_bonus_none": ({"new_cell": 0.0}, {}),
-    "probing_costly": ({"probe": -0.1, "through_wall": -0.25}, {}),
+    "probing_costly": ({"probe": -0.1}, {}),
     "no_bypass_filter": ({}, {"exclude_bypass": False}),
 }
 

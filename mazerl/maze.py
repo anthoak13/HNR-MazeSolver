@@ -3,6 +3,7 @@
 Geometry follows the NYT figures: an 18 x 18 arena whose middle 14 x 14 block is the maze,
 surrounded by a 2-cell band of "outside". The agent starts in the open top-left corner of the maze.
 """
+import os
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -330,7 +331,9 @@ def training_bank(n=N_LAYOUTS, seed=0, mix=MIX):
         return MazeBank.load(path)
     bank = MazeBank.generate(n, seed, mix)
     path.parent.mkdir(parents=True, exist_ok=True)
-    bank.save(path)
+    tmp = path.with_name(f"{path.stem}.{os.getpid()}.tmp.npz")
+    bank.save(tmp)
+    os.replace(tmp, path)            # atomic, so parallel jobs never read a half-written file
     return bank
 
 

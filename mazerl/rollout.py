@@ -44,7 +44,7 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
             wall = _cell(info["probe_cell"][i])
             here = paths[i][-1]
             for kind, value, cell in (("probe", rewards.probe, wall),
-                                      ("through_wall", rewards.through_wall, wall),
+                                      ("through_wall", rewards.probe, wall),
                                       ("outside", rewards.outside, here),
                                       ("new_cell", rewards.new_cell, here),
                                       ("flag", rewards.flag, here)):

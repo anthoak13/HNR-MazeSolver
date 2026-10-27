@@ -71,8 +71,7 @@ animated article-style view (§4).
 | Item | Rule | Tag |
 |---|---|---|
 | Moves | Up / down / left / right | [A], also [P] |
-| Bumping a solid wall | The agent stays put. This counts as a **probe** and gets the probe penalty | [A] probes are penalized, [D] bump = probe |
-| Bumping a weak spot | The spot opens and the agent moves into it. This gets the **through-wall** penalty | [A] "weak spots that open into passages," "move through a wall carries a small penalty"; [D] it opens on the first bump |
+| Walking into a wall (a **probe**) | One penalty per attempt. A weak spot gives way and the agent moves in; a solid wall doesn't, and the agent stays put. The arena edge behaves like a solid wall | [A] "each probe or move through a wall carries a small penalty," "stepped into a wall … penalized"; [D] a weak spot opens on the first bump |
 | What the agent can tell apart | Weak spots look exactly like walls to the agent. Only the human viewer sees them as pale squares | [D] (the article says agents must *probe* to discover them) |
 | Vision | 5 × 5 window centered on the agent. Walls block line of sight | [A] |
 | Memory | Remembers every cell it has seen during the episode | [A] "remember past observations" |
@@ -81,17 +80,26 @@ animated article-style view (§4).
 | Multiple agents | "One or more agents" share a maze, move independently and never block each other. Mostly used for visuals | [A] figures show several, [D] no interaction |
 
 ### Rewards (student-tunable)
-| Term | Default | Tag |
-|---|---|---|
-| Reach flag | **+5** | [C] |
-| Each step on an outside cell | **−0.01** | [C] |
-| Visit a new cell (inside **or** outside) | +0.02 | [A] exists, [D] value |
-| Probe (bump a solid wall) | −0.02 | [A] exists, [D] value |
-| Move through a weak spot | −0.05 | [A] exists, [D] value |
-| Per-step cost | 0 (available, off by default) | [D]; the article lists no step cost, while [P] uses −1/step vs. +50 goal |
+| Event | Points | Fires when | Why this value |
+|---|---|---|---|
+| Reach the flag | **+5** | landing on the flag; the attempt ends | author's example [C]; "much larger" than the rest [A] |
+| Outside | **−0.01** | every move that ends on an outside cell | author's example [C]. Charged per move because p.6 says "penalties," plural, for one trip out |
+| Walk into a wall | **−0.01** | any move into a wall (a weak spot gives way, a solid wall doesn't) | "small penalty" [A]. The author gives only one small magnitude (0.01), so it's reused |
+| New cell | **+0.005** | first visit to a cell this attempt, inside or outside | "small reward" [A]. It must be smaller than 0.01 so a step outside is still a net penalty ("stepped … outside … penalized," p.3). Half is the simplest value below that |
+| Per move | 0 | — | none mentioned [A] |
 
-The [D] values are starting points. Milestone 3 tunes them until the base agent reliably solves training
-mazes, and the final values get recorded here.
+Checks the values pass:
+- **Outside always costs.** Every move outside nets at least −0.005, so wandering the outside band never
+  pays.
+- **Exploring can't compete with the flag.** Visiting the whole maze interior (about 100 cells) earns at
+  most +0.5. Even 200 moves away, the discounted flag is worth 0.68.
+- **The flag outweighs the route's penalties (p.6).**
+  - Enclosed maze: the shortest route (30 moves: 8 outside, 4 weak spots) costs −0.12 in penalties and
+    nets +3.76 after discounting.
+  - Outside-shortcut maze: the shortest route (25 moves, 6 outside) nets +3.98.
+  - An agent would need about 370 extra wall bumps before the route stopped paying.
+- **Open choice, my decision:** new cells outside also earn the +0.005. One rule is simpler, and outside
+  still nets negative.
 
 ### "Training excluded scenarios where the agent bypassed the maze entirely" [A]
 Readings ruled out by the source:
@@ -130,21 +138,25 @@ The article doesn't name an algorithm. The cited paper's baselines are A2C and R
 of the two and the cheaper per step: one gradient pass per step, against three or more for PPO. That
 cheapness is what makes the author's "under an hour on a laptop" realistic (§3).
 
-Hyperparameters taken from the paper's A2C setup [P]:
-- discount 0.99
-- RMSProp, learning rate 5e-4 annealed to 0
-- entropy bonus 0.01–0.1, optionally annealed
-- 5-step unroll, baseline loss weight 0.25
-- gradient clip 40
-- rewards normalized to [−1, 1]
+Settings, with their sources:
+- discount 0.99 [P]
+- value-loss weight 0.25 [P]
+- gradient clip 40 [P]
+- rewards scaled to [−1, 1] by dividing by the largest one [P]
+- Adam, learning rate 1e-3, annealed to 0 [D]. In full-scale tests this beat 5e-4: 94% vs 91% success.
+- entropy bonus 0.05, annealed to 0.01 [P range 0.01–0.1]
+- 256 parallel attempts, one update per 2,048 pooled moves [D]
+- the 200-move cap is treated as the end of the attempt [D]
 
-Adaptation for the bypass rule [D]: each environment buffers its current attempt (≤100 steps). When the
-attempt ends it is either sent to the update or dropped as a bypass. A pooled attempt may have started a
-few updates earlier, so the policy loss uses PPO's clipped probability ratio to stay stable. It is still
-one gradient pass per move, the same cost as A2C.
+Adaptation for the bypass rule [D]:
+- Each environment buffers its current attempt (≤200 moves). When the attempt ends, it either goes into
+  the training pool or is dropped as a bypass.
+- A pooled attempt may have started a few updates earlier. The policy loss therefore uses PPO's clipped
+  probability ratio to stay stable.
+- It's still one gradient pass per move, the same cost as A2C.
 
 - **Student-facing knobs:** reward values, `learning_rate`, `discount` (how far ahead the agent "cares"),
-  `exploration` (entropy bonus), `episodes`, `exclude_bypass`.
+  `exploration` (entropy bonus), `episodes`, `exclude_bypass`, `maze_mix`.
 - **Everything else is hidden.**
 
 ### Engine [D]: our own batched environment, not pycolab
@@ -177,6 +189,10 @@ laptop CPU, with no GPU required**.
   GFLOP/s. A modern laptop CPU can sustain that for a network this size, so the baseline and this design
   are consistent.
 
+**Measured:** a full 126k-attempt run (200-move cap) took **≈55 min on 8 CPU threads** of the desktop
+(i5-13400F). Pretraining runs on your campus GPU cluster via SLURM (`scripts/pretrain.sbatch`). I don't
+have access to it, so you'll run it there.
+
 ### By platform (estimates, until Milestone 2 replaces them with measurements)
 | Platform | Full 126k-attempt run | 5-minute class run |
 |---|---|---|
@@ -197,17 +213,19 @@ class time budgets from them.
      `exclude_bypass` is off.
   2. **Train from scratch for a few minutes**, to watch the start of the learning curve.
   3. **Load precomputed agents** from a reward sweep, so nobody is stuck waiting.
-- Pretraining is done once, on the author-style setup (a laptop/desktop CPU, ≤1 h per run), or on a Colab T4.
+- Pretraining is done once, on the campus SLURM GPU cluster (one array task per agent).
 
 ### Pretrained artifacts (shipped in the package, ~1 MB each)
 - `base` — the article's setup: default rewards, 126k attempts, 13,148 layouts, bypass exclusion on.
   Saved partway through at ≈1k, 5k, 20k, 60k and 126k attempts, to reproduce the article's "agents at
   different stages of training" grid.
-- **Reward sweep**, ≈6–8 runs at ≤1 h each:
-  - outside penalty ∈ {0, −0.01, −0.1, −1}
-  - new-cell reward ∈ {0, 0.02, 0.1}
-  - probe/through-wall penalties ×{0.2, 1, 5}
-  - exclusion on vs. off
+- **Reward variants**, each differing from `base` in one way (`scripts/pretrain.py --list`):
+  - `outside_free`: outside 0
+  - `outside_costly`: outside −0.1
+  - `explore_bonus_big`: new cell +0.1
+  - `explore_bonus_none`: new cell 0
+  - `probing_costly`: wall −0.1
+  - `no_bypass_filter`: bypass attempts kept in training
 
 ---
 
@@ -224,7 +242,7 @@ Every maze view is an **animation in the NYT style**, not a static plot or text.
 
 **Motion:**
 - The agent glides smoothly between cells rather than jumping frame to frame.
-- A pulsing halo plus a short callout ("Penalty for stepping outside", "Probe −0.02", "Broke through
+- A pulsing halo plus a short callout ("Penalty for stepping outside", "Probe −0.01", "Broke through
   wall") appears when a reward or penalty fires, as on p.3.
 - A broken weak spot visibly opens.
 - Several agents can move in the same maze at once (pp. 4–5).
@@ -259,7 +277,7 @@ students already know.
 !pip install -q git+https://github.com/anthoak13/HNR-MazeSolver@maze-rl
 import mazerl as mz
 
-rewards = mz.Rewards(flag=5, outside=-0.01, new_cell=0.02, probe=-0.02, through_wall=-0.05)
+rewards = mz.Rewards(flag=5, outside=-0.01, probe=-0.01, new_cell=0.005)
 base = mz.load_pretrained("base")
 run = mz.train(rewards, start_from=base, minutes=5)   # or episodes=…
 run.plot()
@@ -338,7 +356,7 @@ pyproject.toml               pip-installable from GitHub
      cited paper's lava-world experiment [P] shows agents like this often fail under exactly this kind of
      shift.
   3. **Reward arithmetic.** The outside route has to fit inside the 100-step cap. And after discounting,
-     the +5 flag has to outweigh the outside, probe and through-wall penalties along that route ("the
+     the +5 flag has to outweigh the outside and wall penalties along that route ("the
      reward for completing the task outweighed the penalties," p.6). If the [D] penalty values are too
      harsh, the agent never commits to the long outside route.
   4. **Giving up.** In the enclosed-flag case the agent may keep probing the enclosure from inside, or

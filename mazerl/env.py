@@ -2,8 +2,8 @@
 
 Rules (see PLAN.md for which come from the article):
   * moves are up / right / down / left
-  * bumping a solid wall is a "probe": the agent stays put and pays the probe penalty
-  * bumping a weak spot breaks it open; the agent moves in and pays the through-wall penalty
+  * walking into a wall is a "probe" and costs the probe penalty; a weak spot gives way (the agent
+    moves in), a solid wall doesn't (the agent stays put)
   * the agent sees a 5 x 5 window (walls block line of sight) and remembers everything it has seen
   * it knows the compass direction (8-way) of the flag
 """
@@ -38,9 +38,9 @@ class Rewards:
     """Points the agent gets for each kind of event (negative = penalty)."""
     flag: float = 5.0            # reaching the flag
     outside: float = -0.01       # every move that ends on an outside cell
-    new_cell: float = 0.02       # first visit to a cell
-    probe: float = -0.02         # bumping a solid wall
-    through_wall: float = -0.05  # breaking through a weak spot
+    probe: float = -0.01         # walking into a wall (weak spots give way, solid ones don't)
+    new_cell: float = 0.005      # first visit to a cell (less than the outside penalty, so a
+                                 #   step outside is always a net penalty)
     step: float = 0.0            # every move
 
     def as_dict(self):
@@ -241,7 +241,7 @@ class MazeEnv:
         self.entered |= self.inside[r, c] & ((self.pos - self.start).abs().max(1).values >= 2)
         self.t += 1
 
-        reward = (R.step + R.probe * probe + R.through_wall * through + R.new_cell * new
+        reward = (R.step + R.probe * (probe | through) + R.new_cell * new
                   + R.outside * outside + R.flag * reached).float()
         s = self.stats
         s["return"] += reward
