@@ -102,12 +102,13 @@ class MazeEnv:
     """
 
     def __init__(self, bank, n_envs, rewards=None, max_steps=100, device="cpu", seed=0,
-                 auto_reset=True, maze_ids=None):
+                 auto_reset=True, maze_ids=None, bypass_rule="around"):
         self.n = n_envs
         self.rewards = rewards or Rewards()
         self.max_steps = max_steps
         self.device = torch.device(device)
         self.auto_reset = auto_reset
+        self.bypass_rule = bypass_rule      # "around", "break_in" or "never_entered" (see step)
         self.gen = torch.Generator(device="cpu").manual_seed(seed)
 
         dev = self.device
@@ -140,6 +141,7 @@ class MazeEnv:
         self.t = torch.zeros(n_envs, dtype=torch.long, device=dev)
         self.entered = torch.zeros(n_envs, dtype=torch.bool, device=dev)
         self.went_around = torch.zeros(n_envs, dtype=torch.bool, device=dev)
+        self.broke_in = torch.zeros(n_envs, dtype=torch.bool, device=dev)
         self.last_exit = torch.zeros((n_envs, 2), dtype=torch.long, device=dev)
         self.done = torch.zeros(n_envs, dtype=torch.bool, device=dev)
         self.stats = {k: torch.zeros(n_envs, device=dev)
@@ -167,6 +169,7 @@ class MazeEnv:
         self.t[idx] = 0
         self.entered[idx] = False
         self.went_around[idx] = False
+        self.broke_in[idx] = False
         self.last_exit[idx] = self.start[idx]
         self.done[idx] = False
         for v in self.stats.values():
@@ -230,6 +233,7 @@ class MazeEnv:
         self.last_exit = torch.where(left[:, None], prev, self.last_exit)
         came_back = ~was_in & now_in
         self.went_around |= came_back & (self.pos != self.last_exit).any(1)
+        self.broke_in |= came_back & through
 
         r, c = self.pos[:, 0], self.pos[:, 1]
         new = ~self.visited[self.rows, r, c]
@@ -252,7 +256,15 @@ class MazeEnv:
         done = reached | timeout
         info = {"probe": probe, "through_wall": through, "new_cell": new, "outside": outside,
                 "reached": reached, "timeout": timeout, "probe_cell": target, "done": done}
-        info["bypass"] = done & (self.went_around | ~self.entered)
+        # "around": re-entered somewhere other than where it left, or never entered (default)
+        # "break_in": broke in through an outer weak spot, or never entered
+        # "never_entered": only attempts that never got into the maze
+        bypass = ~self.entered
+        if self.bypass_rule == "around":
+            bypass = bypass | self.went_around
+        elif self.bypass_rule == "break_in":
+            bypass = bypass | self.broke_in
+        info["bypass"] = done & bypass
         info["final_steps"] = self.t.clone()
         info.update({f"final_{k}": v.clone() for k, v in s.items()})
 

@@ -24,7 +24,8 @@ class Settings:
     episodes: int = 126_000       # attempts (the article: 126,000)
     layouts: int = 13_148         # distinct training layouts (the article: 13,148)
     locked_frac: float = 0.5      # share of layouts that require breaking an interior wall
-    exclude_bypass: bool = True   # leave attempts that never entered the maze out of training
+    exclude_bypass: bool = True   # leave attempts that went around the maze out of training
+    bypass_rule: str = "around"   # what counts as going around: "around", "break_in", "never_entered"
     learning_rate: float = 5e-4
     discount: float = 0.99
     exploration: float = 0.05     # entropy bonus: rewards keeping move choices varied
@@ -105,7 +106,7 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
         src = start_from.agent if isinstance(start_from, Run) else start_from
         agent.load_state_dict(src.state_dict())
     opt = torch.optim.Adam(agent.parameters(), lr=s.learning_rate)
-    env = MazeEnv(bank, s.n_envs, rewards, s.max_steps, device, seed=s.seed)
+    env = MazeEnv(bank, s.n_envs, rewards, s.max_steps, device, seed=s.seed, bypass_rule=s.bypass_rule)
     scale = max(abs(v) for v in rewards.as_dict().values()) or 1.0   # rewards -> [-1, 1]
 
     N, T = s.n_envs, s.max_steps
