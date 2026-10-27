@@ -84,3 +84,38 @@ def summarize(episodes):
         "avg score": np.mean([a["return"] for a in agents]),
     }
     return {"attempts": len(agents), **{k: round(float(v), 3) for k, v in stats.items()}}
+
+
+def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=100, seed=0):
+    """Play one attempt per maze (all at once) and report how the agent did."""
+    rewards = rewards or Rewards()
+    bank = mazes if isinstance(mazes, MazeBank) else MazeBank.from_mazes(list(mazes))
+    n = len(bank)
+    env = MazeEnv(bank, n, rewards, max_steps, seed=seed, auto_reset=False, maze_ids=np.arange(n))
+    agent = agent.cpu().eval()
+    finished = torch.zeros(n, dtype=torch.bool)
+    keys = ("reached", "bypass", "final_steps", "final_return", "final_probes", "final_breaks",
+            "final_outside")
+    final = {k: torch.zeros(n) for k in keys}
+    went_out = torch.zeros(n, dtype=torch.bool)
+    for _ in range(max_steps):
+        with torch.no_grad():
+            obs, comp = env.observe()
+            action, _, _ = agent.act(obs, comp, greedy=greedy)
+        _, done, info = env.step(action)
+        went_out |= info["outside"] & ~finished
+        new = done & ~finished
+        for k in keys:
+            final[k][new] = info[k][new].float()
+        finished |= done
+        if finished.all():
+            break
+    return {"attempts": n,
+            "reached flag": round(float(final["reached"].mean()), 3),
+            "went outside": round(float(went_out.float().mean()), 3),
+            "went around the maze": round(float(final["bypass"].mean()), 3),
+            "avg moves": round(float(final["final_steps"].mean()), 1),
+            "avg probes": round(float(final["final_probes"].mean()), 1),
+            "avg walls broken": round(float(final["final_breaks"].mean()), 2),
+            "avg moves outside": round(float(final["final_outside"].mean()), 1),
+            "avg score": round(float(final["final_return"].mean()), 2)}

@@ -62,6 +62,11 @@ class Run:
         return cls(agent, Rewards(**d["rewards"]), Settings(**d["settings"]), d["history"],
                    d["checkpoints"], d["seconds"])
 
+    def plot(self, **kwargs):
+        """Curves of how training went (reward, % reaching the flag, probes, time outside, ...)."""
+        from .viz import plot_training
+        return plot_training(self, **kwargs)
+
     def agent_at(self, episodes):
         """The agent as it was after ``episodes`` attempts (from the saved checkpoints)."""
         agent = Agent()
