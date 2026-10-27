@@ -42,8 +42,10 @@ mixed 1–2-cell walls and corridors seen in the figures. Then open the top-left
 sides, so each one "opens into a passage" [A]. The generator gets checked by eye against the figures
 before anything is built on it.
 
-Layouts are defined and stored as ASCII art, the same convention as the paper's environments [P]. The two
-scenario mazes from pp. 6–7 get transcribed by hand from the PDF in that format.
+Layouts are *stored* as ASCII art, the same convention as the paper's environments [P]. That covers the
+two scenario mazes from pp. 6–7, which get transcribed by hand from the PDF. ASCII is for definitions and
+debugging only (`print(maze)`, test failures). Students never see it. Everything they look at is the
+animated article-style view (§4).
 
 ### Agent mechanics
 | Item | Rule | Tag |
@@ -182,12 +184,35 @@ class time budgets from them.
 ---
 
 ## 4. What students see (mirrors the article's figures)
-Visual style copies the article:
-- Dotted grid, light-gray walls, and pale squares for weak spots (the viewer sees them, the agent doesn't).
-- Pink tint on the outside band.
-- Red agent path, a hollow circle for the start, and a black flag marker.
+Every maze view is an **animation in the NYT style**, not a static plot or text.
 
-Plots use matplotlib. Animations use `FuncAnimation` → `to_jshtml()` so they work inline in Colab.
+**Look**, copied from the figures:
+- Faint dotted grid on white, light-gray wall blocks, and pale squares for weak spots (the viewer sees
+  them, the agent doesn't).
+- Pink tint on the outside band.
+- Hollow coral circle for the start, solid red dot for the agent, and a fading red trail behind it.
+- Black round flag marker.
+- Sparse sans-serif labels (AGENT, GOAL, WALL, OUTSIDE).
+
+**Motion:**
+- The agent glides smoothly between cells rather than jumping frame to frame.
+- A pulsing halo plus a short callout ("Penalty for stepping outside", "Probe −0.02", "Broke through
+  wall") appears when a reward or penalty fires, as on p.3.
+- A broken weak spot visibly opens.
+- Several agents can move in the same maze at once (pp. 4–5).
+- Play / pause / scrub controls and a running score.
+
+**How it's built:**
+- The package records each episode as data (positions, events, rewards).
+- A small self-contained HTML/SVG/JavaScript player draws it inline in the notebook via
+  `IPython.display.HTML`.
+- This works in Colab and Jupyter with no external libraries, and SVG stays crisp at any size. matplotlib
+  frame-by-frame animation was the alternative; it looks choppy and is heavy.
+- The player can also save an episode as a standalone `.html` file, so it can be shared or shown on a
+  projector.
+
+**matplotlib is used only for the training curves** (`run.plot()`), which match the 05-01/05-02 plots
+students already know.
 
 | Function | Shows | Article figure |
 |---|---|---|
@@ -224,7 +249,8 @@ mazerl/
   env.py             batched tensor environment (CPU or GPU)
   agent.py           vision + reasoning network
   a2c.py             A2C training, bypass filter, logging
-  viz.py             article-style rendering, animations, curves
+  viz.py             episode recording, training curves (matplotlib)
+  player/            self-contained HTML/SVG/JS animation player (NYT style)
   pretrained/        *.pt checkpoints + metadata (rewards, settings, attempt counts)
 notebooks/
   00-benchmark.ipynb         Colab speed check (Milestone 2)
@@ -257,9 +283,30 @@ pyproject.toml               pip-installable from GitHub
 ---
 
 ## 7. Risks
-- **The emergent "break back in" may not reproduce at our scale and settings.** Milestone 5 measures it.
-  It's reported with a frequency, for example "in 37% of attempts," not cherry-picked. A model that
-  sometimes does it is also a good discussion point.
+- **The emergent "break back in" may not reproduce.** Nothing in training rewards that exact sequence;
+  the article's point is that it emerges. Emergence can fail for concrete reasons:
+  1. **It's three skills chained together:** leave the maze, travel outside, and probe a wall *from the
+     outside*. Bypass episodes are excluded and outside steps are penalized, so the agent rarely spends
+     long outside during training. Its skills there are under-practiced.
+  2. **The view from outside looks different.** In training, the agent probes walls from inside the maze.
+     Seen from outside, the same wall sits next to outside cells, a combination it has rarely seen. The
+     cited paper's lava-world experiment [P] shows agents like this often fail under exactly this kind of
+     shift.
+  3. **Reward arithmetic.** The outside route has to fit inside the 100-step cap. And after discounting,
+     the +5 flag has to outweigh the outside, probe and through-wall penalties along that route ("the
+     reward for completing the task outweighed the penalties," p.6). If the [D] penalty values are too
+     harsh, the agent never commits to the long outside route.
+  4. **Giving up.** In the enclosed-flag case the agent may keep probing the enclosure from inside, or
+     wander once it runs out of new cells. Persistence comes from the new-cell reward, so its value matters.
+  5. **Training luck.** A2C can collapse into a near-deterministic policy that never tries leaving. One
+     unlucky seed can lose the behavior.
+  6. **We don't know how often it happened for the NYT.** The article shows one replay. It may have been
+     occasional for them as well.
+
+  Milestone 5 measures it. It's reported with a frequency, for example "in 37% of attempts," not
+  cherry-picked. If it's rare or absent, the legitimate levers are the reward values (2–4) and how often
+  training mazes have reachable outer weak spots (1–2). We never script the behavior. A model that only
+  sometimes breaks in is also a good discussion point.
 - **A2C can be unstable.** The paper reports occasional "entropy collapse" and drops its worst 25% of
   seeds [P]. Mitigations: the entropy floor from [P], fixed seeds for the pretrained agents, and a
   `run.plot()` that makes collapse visible, which is itself a teaching point. If A2C won't train reliably,
