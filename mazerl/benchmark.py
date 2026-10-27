@@ -48,18 +48,23 @@ def run_benchmark(episodes=2000, pretrain_steps=300, devices=None, threads=None)
 
     results = {}
     for device in devices:
+        print(f"===== {device.upper()} =====", flush=True)
+        print("1/4  Environment alone (random moves)...", flush=True)
         r = {"env_moves_per_s": _env_rate(bank, device)}
-        run = train(episodes=episodes, device=device, progress=False, bank=bank)
+        print(f"2/4  RL from scratch: {episodes:,} attempts...", flush=True)
+        run = train(episodes=episodes, device=device, progress=True, bank=bank)
         r["scratch_attempts_per_s"] = run.history["episodes"][-1] / run.seconds
+        print(f"3/4  Perception pretraining (no rewards): {pretrain_steps} steps...", flush=True)
         p = pretrain_perception(steps=pretrain_steps, n_samples=pretrain_steps * 100, device=device,
-                                bank=bank, progress=False)
+                                bank=bank, progress=True)
         r["pretrain_s_per_step"] = (p.seconds - p.test["data_seconds"]) / pretrain_steps
         r["pretrain_data_s"] = p.test["data_seconds"]
-        run = train(episodes=episodes, device=device, progress=False, bank=bank, perception=p.agent,
+        print(f"4/4  RL on top of the pretrained perception: {episodes:,} attempts...", flush=True)
+        run = train(episodes=episodes, device=device, progress=True, bank=bank, perception=p.agent,
                     freeze_perception=True)
         r["on_pretrained_attempts_per_s"] = run.history["episodes"][-1] / run.seconds
         results[device] = r
-        print(f"[{device}]")
+        print(f"\n[{device}] summary")
         print(f"  environment alone:               {r['env_moves_per_s']:,.0f} moves/s")
         print(f"  RL from scratch:                 {r['scratch_attempts_per_s']:.0f} attempts/s"
               f"  -> 20k attempts in ~{20_000 / r['scratch_attempts_per_s'] / 60:.0f} min,"

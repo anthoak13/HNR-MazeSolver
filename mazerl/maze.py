@@ -323,12 +323,14 @@ class MazeBank:
 _CACHE = Path.home() / ".cache" / "mazerl"
 
 
-def training_bank(n=N_LAYOUTS, seed=0, mix=MIX):
+def training_bank(n=N_LAYOUTS, seed=0, mix=MIX, verbose=True):
     """The standard training layouts, generated once and cached on disk."""
     tag = "-".join(f"{x:.3f}" for x in mix)
     path = _CACHE / f"bank_v{GENERATOR_VERSION}_n{n}_seed{seed}_mix{tag}.npz"
     if path.exists():
         return MazeBank.load(path)
+    if verbose:
+        print(f"Generating {n:,} training mazes (first time only, about 30-60 s)...", flush=True)
     bank = MazeBank.generate(n, seed, mix)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.stem}.{os.getpid()}.tmp.npz")
