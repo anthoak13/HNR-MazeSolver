@@ -32,24 +32,28 @@ Every rule below is tagged with where it comes from:
 | Walls | Walls fill whole cells. Wall thickness is 1–2 cells and corridor width is 1–2 cells | [A] |
 | Start | Open top-left corner cell of the maze, right next to the outside band | [A] every figure |
 | Flag | One cell inside the maze, usually in the lower/right part | [A] position, [D] how it's placed |
-| Weak spots | A few wall cells (≈4–8 per maze), in both interior walls and the **outer boundary wall**, including in training mazes | [A] pale squares in the figures |
+| Openings | Besides the corner entrance, the outer wall has **3–6 plain gaps** to the outside | [A] counted in the 7 training figures (5–8 open boundary cells each) |
+| Weak spots | **2–6** wall cells per maze, 0–3 of them in the **outer boundary wall**, including in training mazes | [A] pale squares, counted in the figures |
 | Layouts | A fixed bank of **13,148** generated layouts | [A] the number, [D] the generator |
 
-**Maze generator [D]:** carve a standard 6 × 6-room maze on a 13 × 13 lattice, add a few loops, then
-duplicate one random interior row and one random interior column to get 14 × 14. The duplication gives the
-mixed 1–2-cell walls and corridors seen in the figures. Then open the top-left entrance and place the flag
-(a minimum path distance from the start). Weak spots go on wall cells that have open cells on two opposite
-sides, so each one "opens into a passage" [A].
+**Maze generator [D], matched to the figures:** *recursive division*. Draw a wall across the open
+interior with one doorway, then split each side again, and stop early so some chambers stay open rooms.
+This reproduces the figures' long walls with single doorways enclosing open rooms. Then:
+- open the top-left entrance (3 cells, as in every figure);
+- cut 3–6 openings in the outer wall;
+- turn 2–6 wall cells with open cells on two opposite sides into weak spots, so each one "opens into a
+  passage" [A];
+- place the flag at least 12 moves from the start.
+
+The generator was checked by classifying every cell of the 7 training-figure images from the PDF.
 
 **Mazes that require breaking a wall** [A] "They *must* probe walls to discover weak spots that open into
-passages": a share of training mazes (`locked_frac`, default 0.5 [D]) seal the flag's region off from the
-start, so the only way in is through an *interior* weak spot. In those mazes the sealed region never
-touches an outer-wall weak spot, so training never contains the "go outside and break back in" route
-[A] "we did not train it what to do in this exact scenario". The generator gets checked by eye against the figures
-before anything is built on it.
+passages": a share of training mazes (`locked_frac`, default 0.5 [D]) turn one doorway into a weak spot, so
+the flag's region can only be reached by breaking an *interior* wall. The sealed region never touches an
+outer opening or outer weak spot, so the only way in is from inside.
 
 Layouts are *stored* as ASCII art, the same convention as the paper's environments [P]. That covers the
-two scenario mazes from pp. 6–7, which get transcribed by hand from the PDF. ASCII is for definitions and
+two scenario mazes from pp. 6–7, transcribed from the PDF (§4). ASCII is for definitions and
 debugging only (`print(maze)`, test failures). Students never see it. Everything they look at is the
 animated article-style view (§4).
 
@@ -79,14 +83,23 @@ animated article-style view (§4).
 The [D] values are starting points. Milestone 3 tunes them until the base agent reliably solves training
 mazes, and the final values get recorded here.
 
-### "Training excluded scenarios where the agent bypassed the maze entirely" [A], read as follows
-An episode counts as a **bypass** if the agent never enters the maze interior: it leaves through the
-entrance and stays outside until the step cap. This is your reading [D]. Bypass episodes are dropped from
-the training batch. They still count toward the 126,000 attempts, and they're logged. This matters because
-outside cells are new cells, so if new-cell reward > outside penalty, lapping the outside pays.
+### "Training excluded scenarios where the agent bypassed the maze entirely" [A]
+The figures show training layouts with openings near the flag (e.g. p.3), so walking around the outside
+was a real route. An attempt counts as a **bypass** [D] if the agent went *around* the maze instead of
+through it:
+- it **re-entered the maze somewhere other than where it last left**, through another opening or by
+  breaking in through an outer weak spot; or
+- it **never got more than one cell into the maze**, for example lapping the outside until time runs out.
+  This was your reading.
 
-A setting (`exclude_bypass=True/False`) turns the rule off. That's a classroom experiment in itself: *what
-does the agent learn when we don't filter those out?*
+Bypass attempts are dropped from the training batch. They still count toward the 126,000 attempts, and
+they're logged. This rule makes the article's statement literally true: "we did not train it … to leave the
+area despite the penalties, probe the wall from the outside and break in." Breaking in from outside is
+always a bypass, so it is never reinforced.
+
+`exclude_bypass=False` turns the rule off, which is a classroom experiment. A layout-level alternative,
+`no_outside_shortcuts=True` (close openings until going around is never shorter), is available but off by
+default, because the article's own training layouts have such routes.
 
 ---
 
@@ -119,7 +132,9 @@ Hyperparameters taken from the paper's A2C setup [P]:
 - rewards normalized to [−1, 1]
 
 Adaptation for the bypass rule [D]: each environment buffers its current attempt (≤100 steps). When the
-attempt ends it is either sent to the update or dropped as a bypass.
+attempt ends it is either sent to the update or dropped as a bypass. A pooled attempt may have started a
+few updates earlier, so the policy loss uses PPO's clipped probability ratio to stay stable. It is still
+one gradient pass per move, the same cost as A2C.
 
 - **Student-facing knobs:** reward values, `learning_rate`, `discount` (how far ahead the agent "cares"),
   `exploration` (entropy bonus), `episodes`, `exclude_bypass`.
@@ -225,8 +240,8 @@ students already know.
 | `mz.show_maze(maze)` | One layout | p.1–2 "Agent tasked with finding a flag" |
 | `mz.playback(agent, maze)` | Animated attempt with a running score and pop-up labels for penalties/rewards ("Penalty for stepping outside") | p.3 "Playback of a training run" |
 | `mz.training_grid(run)` | Several layouts with agents at several training stages | p.4–5 "Agents training on different maze layouts" |
-| `mz.scenario("enclosed")` | Flag fully walled in; the only way in is through an outer weak spot (layout transcribed from p.6) | p.6 "Agent facing a hard problem" |
-| `mz.scenario("outside_shortcut")` | An inside path exists, but the outside route is available (layout transcribed from p.7) | p.7 "Agent taking outside path…" |
+| `mz.scenario("enclosed")` | Flag fully walled in (layout transcribed from p.6) | p.6 "Agent facing a hard problem" |
+| `mz.scenario("outside_shortcut")` | An inside path exists, but the outside route is shorter (layout transcribed from p.7) | p.7 "Agent taking outside path…" |
 | `mz.agent_view(agent, maze, step)` | What the agent knows: memory, current 5×5 view, compass | Methodology |
 | `run.plot()` | Curves over training: average total reward, % reaching flag, steps per attempt, probes, breaks, time outside, % bypass | not in the article. Mirrors the 05-01/05-02 loss/accuracy curves and the paper's "episode return" plots [P] |
 | `mz.reward_breakdown(agent, maze)` | Bar chart of where an attempt's points came from | "reward … outweighed the penalties" (p.6) |
@@ -246,6 +261,22 @@ mz.evaluate(run.agent, n=500)
 ```
 
 ---
+
+### The article's two test mazes (transcribed)
+Both layouts were read cell by cell from the embedded figure images. Every cell's shade falls into a few
+clean values, so no cell was ambiguous. They live in `mazerl/scenarios/*.txt`. Two details in the figures
+don't match the article's text exactly:
+
+- **p.6 "enclosed":**
+  - The start pocket opens *only* to the outside, so the agent must leave the maze first.
+  - The flag's room has one weak spot, which isn't directly reachable from outside. The shortest route
+    goes outside, then through 4 weak spots.
+- **p.7 "outside_shortcut":**
+  - The inside path takes 27 moves and the outside route 25.
+  - The outside route uses plain *openings*, not a weak spot. The text says the agent exploited "a
+    vulnerability in the wall."
+
+We use the figures as drawn.
 
 ## 5. Repo layout
 ```
