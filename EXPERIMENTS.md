@@ -499,4 +499,30 @@ appear only above a certain model size. Does anything like that happen here?
 
   "Each skill works on its own, but the chain fails" is the scale result to look for.
 
-**Status:** submitted, queued behind round 7.
+**Results** (full scale, two seeds each. Default size = round 4's `mix_1-1-1` runs. Standard suite at 500
+attempts; chain progress at 300 attempts):
+
+| Size | Connections | Open | Interior break | Outside only | Enclosed | Shortcut: went outside | Chain: depth 2 | Depth 3 | Depth 4 |
+|---|---|---|---|---|---|---|---|---|---|
+| tiny | 20k | 97.6–98.0% | 81–87% | ~95% | **15–29%** | 50% | 0.71–0.92 | 0.42–0.60 | 0.14–0.23 |
+| small | 71k | 98.2–99.0% | 88–91% | ~97% | **15–22%** | 15–35% | 0.79–0.85 | 0.54–0.57 | 0.13–0.22 |
+| default | 230k | 99.4–99.6% | 91–94% | ~98% | **36–74%** | 27–46% | 0.92–0.98 | 0.73–0.93 | 0.31–0.80 |
+| large | 1.1M | 99.0–99.2% | 96% | ~98% | **42–56%** | 7% | 0.93–0.98 | 0.78–0.95 | 0.50–0.56 |
+
+All sizes left the maze and reached depth 1 (broke back in from outside) in at least 99% of attempts.
+
+**Evaluation:**
+- **Common skills saturate early:** ✓. Open is at least 97.6% at every size, outside_only about 95–98%.
+  Interior_break improves gradually (84% → 96%), close to the prediction.
+- **The breakout grows with size:** ✓ in trend, ✗ in shape. From small (about 18%) to default and large
+  (about 50%) it roughly doubles to triples, but there's no threshold. **Tiny still breaks out 15–29% of
+  the time** (predicted under 5%).
+- **The chain:** ✓ for the shape, ✗ for the magnitudes. Every size completes the first link. The gap
+  opens at the later links. At depth 3, tiny and small reach about 50%, against about 85% for default and
+  large; at depth 4, about 18% against about 55%. Smaller models lose more attempts with each added link.
+  Predicted depth 3 for tiny was under 20%; it was 42–60%.
+- **Large models are more consistent across seeds** (42–56%, against 36–74% for default). They rarely
+  take the p.7 outside shortcut (7%).
+- **For teaching:** "bigger models chain separately learned skills more reliably" is supported as a
+  **gradual** trend, not a sudden emergence threshold. Two seeds per size is thin, especially given the
+  default size's spread.
