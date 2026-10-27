@@ -256,7 +256,11 @@ the behavior shifts we saw from scratch, and how many attempts that takes.
     **over 20 at 20k** attempts. From scratch it was 36.
   - **Shortcut** (new cell 0): shortcut went outside rises from 8% to **10–25% at 5k** and **≥ 25% at
     20k**. From scratch it was 30–49%.
-- *Time budget:* each budget is then timed on 2 CPU threads here, as a stand-in for a Colab CPU runtime,
-  to see whether it fits in a few minutes of class.
+- *Time budget:* these runs go on the cluster's **CPU** partition (`cs`) with 2 threads each, a stand-in
+  for a Colab CPU runtime. The run time itself is the measurement.
+  - *Prediction:* a fine-tuned agent's attempts are short (about 45–80 moves), so at about 8–10k moves/s
+    on 2 threads, 5k attempts should take **about 1 minute** and 20k **about 3–5 minutes**.
+  - That's comfortably class-sized. If the predictions hold, students need about 20k attempts for a
+    clear effect.
 
-**Status:** submitted, queued behind round 4.
+**Status:** submitted (CPU partition, `scripts/sweep_cpu.sbatch`).
