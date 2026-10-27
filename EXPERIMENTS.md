@@ -410,7 +410,50 @@ the class budgets, using the current defaults: mix 1:1:1, new cell +0.005, wall 
 | no interior_break (1:0:1) | interior_break success **under 40%**, breakout about 0, at both budgets |
 | wall −0.05 | probes on interior_break **at least 30% lower** than the baseline at both budgets; breakout lower than the baseline at 40k |
 
-**Status:** submitted. Each run is a single seed, so only large effects count.
+**Results** (A30 time per run: about 1.1 min at 20k and 1.8 min at 40k, so a T4 takes about 2.6 and
+4.3 min):
+
+| Run | Budget | Open | Interior break | Outside only | Enclosed | Shortcut: went outside | Moves outside, open mazes | Probes, interior |
+|---|---|---|---|---|---|---|---|---|
+| baseline | 20k | 88% | 65% | 53% | 6.6% | 41% | 14.8 | 25.9 |
+| baseline | 40k | 96% | 82% | 92% | 8.6% | 36% | 10.5 | 19.1 |
+| new cell +0.05 | 20k | 91% | 44% | 76% | 1.6% | 100% | **52.8** | 18.3 |
+| new cell +0.05 | 40k | 96% | 69% | 86% | 0.4% | 100% | **46.4** | 11.0 |
+| new cell 0 | 20k | 87% | 60% | 53% | 1.4% | 52% | 15.2 | 30.3 |
+| new cell 0 | 40k | 97% | 78% | 90% | 8.6% | 36% | 9.4 | 21.5 |
+| no outside_only | 20k | 92% | 82% | **0%** | 0.0% | 4% | 0.1 | 23.6 |
+| no outside_only | 40k | 96% | 92% | **0%** | 1.2% | 2% | 0.1 | 13.2 |
+| no interior_break | 20k | 89% | **39%** | 71% | 0.2% | 25% | 20.2 | 31.9 |
+| no interior_break | 40k | 98% | **29%** | 97% | 0.0% | 3% | 12.2 | 18.7 |
+| wall −0.05 | 20k | 90% | 64% | 0% | 0.0% | 5% | 0.1 | 11.4 |
+| wall −0.05 | 40k | 98% | 75% | 94% | 12.0% | 30% | 7.8 | 13.1 |
+
+**Evaluation:**
+
+| Experiment | Prediction | Result |
+|---|---|---|
+| Hacking (new cell +0.05) | outside moves on open ≥ 20 | **52.8 / 46.4**, against a baseline of 15 / 10.5; shortcut 100% |
+| No outside_only | outside_only < 30%, breakout ~0 | **0%** at both budgets; it never leaves (0.1 moves outside) |
+| No interior_break | interior < 40%, breakout ~0 | **39% / 29%**, breakout 0 |
+| Shortcut (new cell 0) | +15 points at 40k | **not visible**: 36% against 36%. At 20k both wander (52% vs 41%) |
+| Wall −0.05 | probes ≥ 30% lower; breakout lower at 40k | probes 56% / 31% lower ✓; breakout higher ✗ (12% vs 8.6%; single seed, within noise) |
+| Baseline | open ~93% / ~97%; breakout ~5% / 10–20% | open 88% / 96%; breakout **6.6% / 8.6%**, below the predicted 10–20% at 40k |
+
+Also: at 20k, a costly wall (−0.05) left the agent unable to solve outside-only mazes (0%). It recovered
+by 40k (94%). Costly probing slows early learning broadly.
+
+**Conclusions for class** (T4, 2–5 min per run):
+- **Live experiments that work** (large, fast, legible):
+  1. **Exploration reward → reward hacking.** The agent tours the outside farming points, and the shortcut
+     rate goes to 100%.
+  2. **Remove outside-only mazes** → the agent never leaves the maze and can't solve outside-only mazes.
+  3. **Remove interior-break mazes** → the agent can't break walls.
+- **The breakout itself is too rare at class budgets** (under 10%, against 36–74% at full scale). Show it
+  with **pretrained full-scale agents** instead, including the variants. The "remove a skill → the
+  breakout vanishes" comparison then also comes from pretrained agents, with the live runs showing the
+  missing skill.
+- **The shortcut effect (new cell 0) isn't visible at class budgets.** If it's used at all, it would come
+  from a pretrained full-scale agent.
 
 ---
 
