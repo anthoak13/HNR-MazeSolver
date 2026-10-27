@@ -94,7 +94,11 @@ class MazeEnv:
     """``n_envs`` attempts running in parallel; finished attempts restart on a new layout.
 
     bank: a MazeBank of layouts to sample from.
-    exclude_bypass: mark attempts in which the agent never entered the maze (training skips them).
+
+    An attempt counts as a *bypass* (training leaves these out, as the article's did) if the agent
+    went around the maze instead of through it: it re-entered the maze somewhere other than where
+    it last left (through another opening, or by breaking in from outside), or it never got more
+    than one cell into the maze.
     """
 
     def __init__(self, bank, n_envs, rewards=None, max_steps=100, device="cpu", seed=0,
@@ -135,6 +139,8 @@ class MazeEnv:
         self.maze_id = torch.zeros(n_envs, dtype=torch.long, device=dev)
         self.t = torch.zeros(n_envs, dtype=torch.long, device=dev)
         self.entered = torch.zeros(n_envs, dtype=torch.bool, device=dev)
+        self.went_around = torch.zeros(n_envs, dtype=torch.bool, device=dev)
+        self.last_exit = torch.zeros((n_envs, 2), dtype=torch.long, device=dev)
         self.done = torch.zeros(n_envs, dtype=torch.bool, device=dev)
         self.stats = {k: torch.zeros(n_envs, device=dev)
                       for k in ("return", "probes", "breaks", "outside", "new_cells")}
@@ -160,6 +166,8 @@ class MazeEnv:
         self.visited[idx, self.pos[idx, 0], self.pos[idx, 1]] = True
         self.t[idx] = 0
         self.entered[idx] = False
+        self.went_around[idx] = False
+        self.last_exit[idx] = self.start[idx]
         self.done[idx] = False
         for v in self.stats.values():
             v[idx] = 0
@@ -214,7 +222,14 @@ class MazeEnv:
         probe = ~passable & ~through
         self.grid[self.rows[through], target[through, 0], target[through, 1]] = FLOOR
         moved = passable | through
+        prev = self.pos
         self.pos = torch.where(moved[:, None], target, self.pos)
+        was_in = self.inside[prev[:, 0], prev[:, 1]]
+        now_in = self.inside[self.pos[:, 0], self.pos[:, 1]]
+        left = was_in & ~now_in
+        self.last_exit = torch.where(left[:, None], prev, self.last_exit)
+        came_back = ~was_in & now_in
+        self.went_around |= came_back & (self.pos != self.last_exit).any(1)
 
         r, c = self.pos[:, 0], self.pos[:, 1]
         new = ~self.visited[self.rows, r, c]
@@ -237,7 +252,7 @@ class MazeEnv:
         done = reached | timeout
         info = {"probe": probe, "through_wall": through, "new_cell": new, "outside": outside,
                 "reached": reached, "timeout": timeout, "probe_cell": target, "done": done}
-        info["bypass"] = done & ~self.entered
+        info["bypass"] = done & (self.went_around | ~self.entered)
         info["final_steps"] = self.t.clone()
         info.update({f"final_{k}": v.clone() for k, v in s.items()})
 

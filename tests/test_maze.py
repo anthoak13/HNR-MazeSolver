@@ -38,12 +38,19 @@ def test_unlocked_mazes_solvable_without_breaking():
         assert path_length(m.grid, m.start, m.flag, {FLOOR}) is not None
 
 
-def test_outside_never_a_shortcut_in_training_layouts():
-    for locked in (False, True):
-        for m in mazes(locked=locked):
-            inside = path_length(m.grid, m.start, m.flag, {FLOOR, WEAK})
-            anywhere = path_length(m.grid, m.start, m.flag, {FLOOR, WEAK, OUTSIDE})
-            assert anywhere >= inside
+def test_outer_wall_has_openings_besides_entrance():
+    for m in mazes(50):
+        ring = m.grid[BAND:BAND + MAZE, BAND:BAND + MAZE].copy()
+        ring[1:-1, 1:-1] = WALL
+        assert (ring == FLOOR).sum() >= 3 + 3          # entrance (3 cells) + openings
+
+
+def test_no_outside_shortcuts_option():
+    for m in mazes(100, no_outside_shortcuts=True):
+        inside_only = np.where(m.grid == OUTSIDE, WALL, m.grid)
+        inside = path_length(inside_only, m.start, m.flag, {FLOOR, WEAK})
+        anywhere = path_length(m.grid, m.start, m.flag, {FLOOR, WEAK, OUTSIDE})
+        assert anywhere >= inside
 
 
 def test_weak_spots_on_inner_and_outer_walls():
@@ -64,3 +71,14 @@ def test_bank_round_trip(tmp_path):
     again = MazeBank.load(tmp_path / "b.npz")
     assert (again.grids == bank.grids).all() and len(again) == 10
     assert str(again[3]) == str(bank[3])
+
+
+def test_article_scenarios_load():
+    from mazerl.maze import scenario
+    enclosed = scenario("enclosed")
+    assert enclosed.start == (2, 2) and enclosed.flag == (10, 12)
+    assert path_length(enclosed.grid, enclosed.start, enclosed.flag, {FLOOR, WEAK}) is None
+    assert path_length(enclosed.grid, enclosed.start, enclosed.flag, {FLOOR, WEAK, OUTSIDE}) is not None
+    shortcut = scenario("outside_shortcut")
+    inside_only = np.where(shortcut.grid == OUTSIDE, WALL, shortcut.grid)
+    assert path_length(inside_only, shortcut.start, shortcut.flag, {FLOOR}) is not None
