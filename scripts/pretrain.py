@@ -16,7 +16,7 @@ from pathlib import Path
 
 import torch
 
-from mazerl.a2c import train
+from mazerl.a2c import train, Run
 from mazerl.env import Rewards
 from mazerl.rollout import standard_report
 
@@ -36,20 +36,22 @@ RUNS = {
 
 
 def job(name, episodes, threads, device, out, seed, extra_rewards=None, extra_settings=None, save_as=None,
-        evaluate=0):
+        evaluate=0, start_from=None):
     torch.set_num_threads(threads)
     reward_changes, overrides = RUNS[name]
     rewards = Rewards(**{**reward_changes, **(extra_rewards or {})})
     overrides = {**overrides, **(extra_settings or {}), "seed": seed}
     if episodes:
         overrides["episodes"] = episodes
-    run = train(rewards, device=device, progress=False, checkpoint_at=STAGES, **overrides)
+    base = Run.load(start_from) if start_from else None
+    run = train(rewards, device=device, progress=False, checkpoint_at=STAGES, start_from=base, **overrides)
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"{save_as or name}.pt"
     run.save(path)
     if evaluate:
         report = standard_report(run, n=evaluate)
         summary = {"name": save_as or name, "seed": seed, "minutes": run.seconds / 60,
+                   "start_from": str(start_from) if start_from else None,
                    "rewards": rewards.as_dict(), "settings": {k: v for k, v in overrides.items()},
                    "final_training_success": run.history["success"][-1], "tests": report}
         (out / f"{save_as or name}.json").write_text(json.dumps(summary, indent=1, default=str))
@@ -75,6 +77,7 @@ def main():
     ap.add_argument("--reward", action="append", default=[], help="override a reward, e.g. probe=-0.02")
     ap.add_argument("--setting", action="append", default=[], help="override a setting, e.g. maze_mix=0.3,0.4,0.3")
     ap.add_argument("--name", default=None, help="file name for a one-off experiment")
+    ap.add_argument("--start-from", default=None, help="fine-tune this saved run instead of starting fresh")
     ap.add_argument("--evaluate", type=int, default=0, help="after training, run the standard test suite "
                     "with this many attempts per test and save <name>.json")
     a = ap.parse_args()
@@ -88,8 +91,8 @@ def main():
     extra_r, extra_s = dict(map(_parse, a.reward)), dict(map(_parse, a.setting))
     if (extra_r or extra_s or a.name) and len(names) != 1:
         ap.error("--reward/--setting/--name apply to a single run")
-    args = [(n, a.episodes, a.threads, a.device, a.out, a.seed, extra_r, extra_s, a.name, a.evaluate)
-            for n in names]
+    args = [(n, a.episodes, a.threads, a.device, a.out, a.seed, extra_r, extra_s, a.name, a.evaluate,
+             a.start_from) for n in names]
     if len(args) == 1:
         job(*args[0])
     else:

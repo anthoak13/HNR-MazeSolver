@@ -1,0 +1,5 @@
+ft_control_20k --start-from runs/exp/expA.pt --episodes 20000
+ft_new0.05_5k --start-from runs/exp/expA.pt --episodes 5000 --reward new_cell=0.05
+ft_new0.05_20k --start-from runs/exp/expA.pt --episodes 20000 --reward new_cell=0.05
+ft_new0_5k --start-from runs/exp/expA.pt --episodes 5000 --reward new_cell=0.0
+ft_new0_20k --start-from runs/exp/expA.pt --episodes 20000 --reward new_cell=0.0

@@ -237,3 +237,26 @@ unless that hurts.
 - *Runs:* `mix_1-1-1`, seeds 0 and 1.
 
 **Status:** submitted.
+
+---
+
+## Round 5: Can students change a trained agent's behavior in class time?
+
+In class, students won't train from scratch (126k attempts). They'll fine-tune the shipped base agent
+with their own rewards for a few minutes. So the useful questions are whether fine-tuning reproduces
+the behavior shifts we saw from scratch, and how many attempts that takes.
+
+**H9: fine-tuning reproduces the from-scratch shifts within a class-sized budget.**
+- *Starting point:* agent A (seed 0, current defaults), for every run.
+- *Runs and predictions:*
+  - **Control** (the same rewards, 20k attempts): **no change**, within seed noise on every test. If
+    behavior gets worse, the fine-tuning settings themselves are disruptive. The suspect would be the
+    exploration bonus restarting at 0.05.
+  - **Hacking** (new cell +0.05): moves outside on open mazes rise from 4.7 to **over 10 at 5k** and
+    **over 20 at 20k** attempts. From scratch it was 36.
+  - **Shortcut** (new cell 0): shortcut went outside rises from 8% to **10–25% at 5k** and **≥ 25% at
+    20k**. From scratch it was 30–49%.
+- *Time budget:* each budget is then timed on 2 CPU threads here, as a stand-in for a Colab CPU runtime,
+  to see whether it fits in a few minutes of class.
+
+**Status:** submitted, queued behind round 4.
