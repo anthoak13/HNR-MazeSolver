@@ -4,7 +4,8 @@ Rules (see PLAN.md for which come from the article):
   * moves are up / right / down / left
   * walking into a wall is a "probe" and costs the probe penalty; a weak spot gives way (the agent
     moves in), a solid wall doesn't (the agent stays put)
-  * the agent sees a 5 x 5 window (walls block line of sight) and remembers everything it has seen
+  * the agent sees a 5 x 5 window (walls block line of sight) and remembers everything it has seen,
+    including which walls it has already walked into and found solid
   * it knows the compass direction (8-way) of the flag
 """
 from dataclasses import dataclass, asdict
@@ -24,9 +25,9 @@ VIEW = 2                 # the agent sees VIEW cells in every direction (5 x 5)
 CROP = 2 * PAD + 1       # the network sees an 11 x 11 window of its memory
 
 # What the agent remembers about a cell
-UNSEEN, M_FLOOR, M_OUTSIDE, M_WALL, M_FLAG = range(5)
-N_MEMORY = 5
-OBS_CHANNELS = N_MEMORY + 2      # + visited-by-me, + visible-right-now
+UNSEEN, M_FLOOR, M_OUTSIDE, M_WALL, M_FLAG, M_EDGE = range(6)
+N_MEMORY = 6
+OBS_CHANNELS = N_MEMORY + 3      # + visited-by-me, + visible-right-now, + probed-and-held-firm
 N_COMPASS = 8
 
 MOVES = torch.tensor([[-1, 0], [0, 1], [1, 0], [0, -1]])
@@ -41,6 +42,7 @@ class Rewards:
     probe: float = -0.01         # walking into a wall (weak spots give way, solid ones don't)
     new_cell: float = 0.005      # first visit to a cell (less than the outside penalty, so a
                                  #   step outside is always a net penalty)
+    explore_outside: bool = True # whether new cells outside the maze also earn new_cell
     step: float = 0.0            # every move
 
     def as_dict(self):
@@ -121,7 +123,7 @@ class MazeEnv:
         self.view_offsets = offsets.to(dev)
         self.los_table = self.los_table.to(dev)
         self.moves = MOVES.to(dev)
-        self.memory_code = torch.tensor([M_FLOOR, M_WALL, M_WALL, M_OUTSIDE, M_WALL], device=dev)
+        self.memory_code = torch.tensor([M_FLOOR, M_WALL, M_WALL, M_OUTSIDE, M_EDGE], device=dev)
         self.crop_range = torch.arange(-PAD, PAD + 1, device=dev)
         inside = torch.zeros(SIZE, SIZE, dtype=torch.bool)
         inside[PAD + BAND:PAD + BAND + MAZE, PAD + BAND:PAD + BAND + MAZE] = True
@@ -131,6 +133,7 @@ class MazeEnv:
         self.grid = torch.empty((n_envs, SIZE, SIZE), dtype=torch.int8, device=dev)
         self.memory = torch.zeros((n_envs, SIZE, SIZE), dtype=torch.int8, device=dev)
         self.visited = torch.zeros((n_envs, SIZE, SIZE), dtype=torch.bool, device=dev)
+        self.probed = torch.zeros((n_envs, SIZE, SIZE), dtype=torch.bool, device=dev)
         self.visible = torch.zeros((n_envs, 2 * VIEW + 1, 2 * VIEW + 1), dtype=torch.bool, device=dev)
         self.pos = torch.zeros((n_envs, 2), dtype=torch.long, device=dev)
         self.start = torch.zeros_like(self.pos)
@@ -163,6 +166,7 @@ class MazeEnv:
         self.flag[idx] = self.bank_flags[ids]
         self.memory[idx] = UNSEEN
         self.visited[idx] = False
+        self.probed[idx] = False
         self.visited[idx, self.pos[idx, 0], self.pos[idx, 1]] = True
         self.t[idx] = 0
         self.entered[idx] = False
@@ -193,16 +197,17 @@ class MazeEnv:
 
     # ----------------------------------------------------------------------------------------
     def observe(self):
-        """Network input: (n, 7, 11, 11) memory window around the agent, and (n, 8) compass."""
+        """Network input: (n, 9, 11, 11) memory window around the agent, and (n, 8) compass."""
         r = self.pos[:, 0, None] + self.crop_range
         c = self.pos[:, 1, None] + self.crop_range
         b = self.rows[:, None, None]
         mem = self.memory[b, r[:, :, None], c[:, None, :]].long()
         vis = self.visited[b, r[:, :, None], c[:, None, :]]
+        tried = self.probed[b, r[:, :, None], c[:, None, :]]
         now = torch.zeros((self.n, CROP, CROP), dtype=torch.bool, device=self.device)
         now[:, PAD - VIEW:PAD + VIEW + 1, PAD - VIEW:PAD + VIEW + 1] = self.visible
         x = torch.cat([F.one_hot(mem, N_MEMORY).permute(0, 3, 1, 2).float(),
-                       vis[:, None].float(), now[:, None].float()], 1)
+                       vis[:, None].float(), now[:, None].float(), tried[:, None].float()], 1)
         return x, self.compass()
 
     def compass(self):
@@ -221,6 +226,7 @@ class MazeEnv:
         passable = (cell == FLOOR) | (cell == OUTSIDE)
         through = cell == WEAK
         probe = ~passable & ~through
+        self.probed[self.rows[probe], target[probe, 0], target[probe, 1]] = True
         self.grid[self.rows[through], target[through, 0], target[through, 1]] = FLOOR
         moved = passable | through
         prev = self.pos
@@ -241,7 +247,8 @@ class MazeEnv:
         self.entered |= self.inside[r, c] & ((self.pos - self.start).abs().max(1).values >= 2)
         self.t += 1
 
-        reward = (R.step + R.probe * (probe | through) + R.new_cell * new
+        explored = new & (self.inside[r, c] | R.explore_outside)
+        reward = (R.step + R.probe * (probe | through) + R.new_cell * explored
                   + R.outside * outside + R.flag * reached).float()
         s = self.stats
         s["return"] += reward

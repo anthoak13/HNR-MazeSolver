@@ -2,7 +2,8 @@ import numpy as np
 import pytest
 import torch
 
-from mazerl.env import (MazeEnv, Rewards, PAD, VIEW, M_WALL, M_FLOOR, M_OUTSIDE, M_FLAG, UNSEEN)
+from mazerl.env import (MazeEnv, Rewards, PAD, VIEW, M_WALL, M_FLOOR, M_OUTSIDE, M_FLAG, M_EDGE,
+                        UNSEEN, N_MEMORY, OBS_CHANNELS)
 from mazerl.maze import Maze, MazeBank, FLOOR, WALL, WEAK, OUTSIDE
 
 UP, RIGHT, DOWN, LEFT = range(4)
@@ -163,8 +164,8 @@ def test_compass_points_to_flag():
 def test_observation_shapes():
     env, _ = make_env(n=3)
     x, compass = env.observe()
-    assert x.shape == (3, 7, 11, 11) and compass.shape == (3, 8)
-    assert torch.allclose(x[:, :5].sum(1), torch.ones(3, 11, 11))
+    assert x.shape == (3, OBS_CHANNELS, 11, 11) and compass.shape == (3, 8)
+    assert torch.allclose(x[:, :N_MEMORY].sum(1), torch.ones(3, 11, 11))
 
 
 def test_auto_reset_samples_new_attempts():
@@ -174,3 +175,25 @@ def test_auto_reset_samples_new_attempts():
         _, done, info = env.step(torch.randint(0, 4, (64,)))
     assert done.all() and (info["final_steps"] == 5).all()
     assert (env.t == 0).all()
+
+
+def test_remembers_walls_it_probed():
+    env, _ = make_env()
+    act(env, DOWN)                               # (3, 2) is solid
+    x, _ = env.observe()
+    assert env.probed[0, 3 + PAD, 2 + PAD]
+    assert x[0, -1, 6, 5] == 1                   # probed channel, one row below the agent
+    assert x[0, -1].sum() == 1
+
+
+def test_arena_edge_is_its_own_kind_of_cell():
+    env, _ = make_env()
+    act(env, UP)                                 # step into the outside band at (1, 2)
+    act(env, UP)                                 # (0, 2): the arena edge is now in view
+    assert int(env.memory[0, -1 + PAD, 2 + PAD]) == M_EDGE
+
+
+def test_explore_outside_off():
+    env, _ = make_env(rewards=Rewards(explore_outside=False))
+    r, _, _ = act(env, LEFT)                     # new outside cell: penalty only
+    assert r.item() == pytest.approx(Rewards().outside)
