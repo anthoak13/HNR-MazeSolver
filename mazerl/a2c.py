@@ -37,6 +37,8 @@ class Settings:
     clip: float = 0.2
     value_weight: float = 0.25
     max_grad_norm: float = 40.0
+    net_channels: tuple = (32, 64, 64)   # vision layers' sizes
+    net_hidden: int = 100                # reasoning layers' size
     seed: int = 0
 
 
@@ -58,10 +60,10 @@ class Run:
     @classmethod
     def load(cls, path, device="cpu"):
         d = torch.load(path, map_location=device, weights_only=False)
-        agent = Agent()
+        settings = Settings(**d["settings"])
+        agent = _new_agent(settings)
         agent.load_state_dict(d["agent"])
-        return cls(agent, Rewards(**d["rewards"]), Settings(**d["settings"]), d["history"],
-                   d["checkpoints"], d["seconds"])
+        return cls(agent, Rewards(**d["rewards"]), settings, d["history"], d["checkpoints"], d["seconds"])
 
     def plot(self, **kwargs):
         """Curves of how training went (reward, % reaching the flag, probes, time outside, ...)."""
@@ -70,7 +72,7 @@ class Run:
 
     def agent_at(self, episodes):
         """The agent as it was after ``episodes`` attempts (from the saved checkpoints)."""
-        agent = Agent()
+        agent = _new_agent(self.settings)
         agent.load_state_dict(self.checkpoints[episodes])
         return agent
 
@@ -106,7 +108,7 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
     torch.manual_seed(s.seed)
     bank = bank or training_bank(s.layouts, seed=s.seed, mix=s.maze_mix)
 
-    agent = Agent().to(device)
+    agent = _new_agent(s).to(device)
     if start_from is not None:
         src = start_from.agent if isinstance(start_from, Run) else start_from
         agent.load_state_dict(src.state_dict())
@@ -179,6 +181,10 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
         bar.close()
     agent = agent.cpu().eval()
     return Run(agent, rewards, s, history, checkpoints, time.time() - t0)
+
+
+def _new_agent(settings):
+    return Agent(tuple(int(c) for c in settings.net_channels), int(settings.net_hidden))
 
 
 def _gae_matrix(T, decay, device):

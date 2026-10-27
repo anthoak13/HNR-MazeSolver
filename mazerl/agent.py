@@ -13,16 +13,17 @@ class Agent(nn.Module):
     Reasoning: two hidden layers of 100 neurons that combine vision with the compass and pick a move.
     Outputs move preferences (4) and an estimate of future reward (the "value")."""
 
-    def __init__(self, hidden=100):
+    def __init__(self, channels=(32, 64, 64), hidden=100):
         super().__init__()
+        c1, c2, c3 = channels
         self.vision = nn.Sequential(
-            nn.Conv2d(OBS_CHANNELS, 32, 3, padding=1), nn.ReLU(),
-            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(OBS_CHANNELS, c1, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(c1, c2, 3, padding=1), nn.ReLU(),
             nn.MaxPool2d(2),
-            nn.Conv2d(64, 64, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(c2, c3, 3, padding=1), nn.ReLU(),
             nn.Flatten(),
         )
-        n_vision = 64 * (CROP // 2) ** 2
+        n_vision = c3 * (CROP // 2) ** 2
         self.reasoning = nn.Sequential(
             nn.Linear(n_vision + N_COMPASS, hidden), nn.ReLU(),
             nn.Linear(hidden, hidden), nn.ReLU(),
