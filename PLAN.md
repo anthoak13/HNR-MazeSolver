@@ -31,8 +31,8 @@ Every rule below is tagged with where it comes from:
 | Maze | Middle 14 × 14 block (rows/cols 2–15), with a 2-cell **outside** band all around | [A] |
 | Walls | Walls fill whole cells. Wall thickness is 1–2 cells and corridor width is 1–2 cells | [A] |
 | Start | Open top-left corner cell of the maze, right next to the outside band | [A] every figure |
-| Flag | One cell inside the maze, usually in the lower/right part | [A] position, [D] how it's placed |
-| Openings | Besides the corner entrance, the outer wall has **3–6 plain gaps** to the outside | [A] counted in the 7 training figures (5–8 open boundary cells each) |
+| Flag | One cell in rows/cols 10–14 (lower right) | [A] true of all 9 figures |
+| Openings | Besides the corner entrance, the outer wall has **3–5 plain gaps** to the outside | [A] counted in the 7 training figures |
 | Weak spots | **2–6** wall cells per maze, 0–3 of them in the **outer boundary wall**, including in training mazes | [A] pale squares, counted in the figures |
 | Layouts | A fixed bank of **13,148** generated layouts | [A] the number, [D] the generator |
 
@@ -47,10 +47,20 @@ This reproduces the figures' long walls with single doorways enclosing open room
 
 The generator was checked by classifying every cell of the 7 training-figure images from the PDF.
 
-**Mazes that require breaking a wall** [A] "They *must* probe walls to discover weak spots that open into
-passages": a share of training mazes (`locked_frac`, default 0.5 [D]) turn one doorway into a weak spot, so
-the flag's region can only be reached by breaking an *interior* wall. The sealed region never touches an
-outer opening or outer weak spot, so the only way in is from inside.
+**Three kinds of training maze**, from the article's 7 training figures (pp. 2–5, transcribed in
+`mazerl/scenarios/training/`):
+
+| Kind | Figures | How the flag is reached |
+|---|---|---|
+| open | p3, p4a, p4b | inside, without breaking anything |
+| interior_break | p4c, p5a | inside, through an interior weak spot ("they *must* probe walls…") |
+| outside_only | p5b, p5c | out the entrance and back in through an outer *opening*; no weak spot needed |
+
+- The generator makes them in the same 3 : 2 : 2 mix (`maze_mix`).
+- In every figure the flag sits in rows/cols 10–14 (the lower right), so the generator puts it there.
+- No training figure *requires* breaking in from outside. But outer weak spots are allowed anywhere,
+  including next to the flag's area, because the article's training animation shows an agent breaking
+  in from outside.
 
 Layouts are *stored* as ASCII art, the same convention as the paper's environments [P]. That covers the
 two scenario mazes from pp. 6–7, transcribed from the PDF (§4). ASCII is for definitions and
@@ -84,19 +94,19 @@ The [D] values are starting points. Milestone 3 tunes them until the base agent 
 mazes, and the final values get recorded here.
 
 ### "Training excluded scenarios where the agent bypassed the maze entirely" [A]
-**Definition (yours):** an attempt is a **bypass** if the agent *left the maze and never came back in*,
-so the attempt ends with the agent outside. Coming back in anywhere counts as going through the maze,
-whether by the same gap, another opening, or breaking through a weak spot. Bypass attempts are dropped
-from the training batch. They still count toward the 126,000 attempts, and they're logged.
+Readings ruled out by the source:
+- **Came back in somewhere else**, or **reached the flag via the outside:** ruled out, because two
+  training mazes (p5b, p5c) can *only* be solved that way.
+- **Broke in from outside:** ruled out, because the article's training animation shows it happening.
+- **Layout-level readings** (mazes with an outside route were excluded): ruled out, because "where the
+  agent bypassed" describes something the agent did, and p5b/p5c are outside-only training mazes.
 
-`exclude_bypass=False` turns the filter off (classroom experiment). `bypass_rule` keeps the alternative
-readings I tried for comparison:
-- `"never_entered"`: never got more than one cell in.
-- `"around"`: re-entered somewhere other than where it left.
-- `"break_in"`: broke in from outside.
+Remaining readings, both available as `bypass_rule`:
+- `"left"` (default): the agent left the maze and never came back in, so the attempt ends outside.
+- `"never_entered"`: the agent never got more than one cell into the maze.
 
-Experiments showed `"around"` teaches the agent to avoid the outside almost completely, because going
-outside never pays off.
+Bypass attempts are dropped from the training batch. They still count toward the 126,000 attempts, and
+they're logged. `exclude_bypass=False` turns the filter off (classroom experiment).
 
 ---
 

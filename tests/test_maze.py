@@ -1,7 +1,7 @@
 import numpy as np
 
-from mazerl.maze import (MazeBank, generate_maze, path_length, ARENA, BAND, MAZE,
-                         FLOOR, WALL, WEAK, OUTSIDE)
+from mazerl.maze import (MazeBank, generate_maze, maze_kind, path_length, scenario, ARENA, BAND,
+                         MAZE, FLOOR, WALL, WEAK, OUTSIDE, KINDS)
 
 
 def mazes(n=200, seed=0, **kw):
@@ -21,21 +21,26 @@ def test_layout_geometry():
         assert g[m.flag] == FLOOR
 
 
-def test_every_maze_solvable_with_weak_spots():
-    for locked in (False, True):
-        for m in mazes(locked=locked):
-            assert path_length(m.grid, m.start, m.flag, {FLOOR, WEAK}) is not None
+def test_every_kind_is_what_it_claims():
+    for kind in KINDS:
+        for m in mazes(150, kind=kind):
+            assert maze_kind(m) == kind
+            assert path_length(m.grid, m.start, m.flag, {FLOOR, WEAK, OUTSIDE}) >= 12
 
 
-def test_locked_mazes_require_breaking_an_interior_wall():
-    for m in mazes(locked=True):
-        assert path_length(m.grid, m.start, m.flag, {FLOOR}) is None
-        assert path_length(m.grid, m.start, m.flag, {FLOOR, OUTSIDE}) is None
+def test_flag_in_lower_right_like_the_figures():
+    for m in mazes(100, kind="outside_only") + mazes(100):
+        assert 10 <= m.flag[0] <= 14 and 10 <= m.flag[1] <= 14
 
 
-def test_unlocked_mazes_solvable_without_breaking():
-    for m in mazes(locked=False):
-        assert path_length(m.grid, m.start, m.flag, {FLOOR}) is not None
+def test_article_training_figures_classify_as_expected():
+    from pathlib import Path
+    import mazerl
+    from mazerl.maze import Maze
+    folder = Path(mazerl.__file__).parent / "scenarios" / "training"
+    kinds = {f.stem: maze_kind(Maze.from_ascii(f.read_text())) for f in folder.glob("*.txt")}
+    assert kinds == {"p3": "open", "p4a": "open", "p4b": "open", "p4c": "interior_break",
+                     "p5a": "interior_break", "p5b": "outside_only", "p5c": "outside_only"}
 
 
 def test_outer_wall_has_openings_besides_entrance():
@@ -46,7 +51,7 @@ def test_outer_wall_has_openings_besides_entrance():
 
 
 def test_no_outside_shortcuts_option():
-    for m in mazes(100, no_outside_shortcuts=True):
+    for m in mazes(100, kind="open", no_outside_shortcuts=True):
         inside_only = np.where(m.grid == OUTSIDE, WALL, m.grid)
         inside = path_length(inside_only, m.start, m.flag, {FLOOR, WEAK})
         anywhere = path_length(m.grid, m.start, m.flag, {FLOOR, WEAK, OUTSIDE})
@@ -67,6 +72,7 @@ def test_weak_spots_on_inner_and_outer_walls():
 
 def test_bank_round_trip(tmp_path):
     bank = MazeBank.generate(10, seed=1)
+    assert set(bank.kinds) <= set(KINDS)
     bank.save(tmp_path / "b.npz")
     again = MazeBank.load(tmp_path / "b.npz")
     assert (again.grids == bank.grids).all() and len(again) == 10

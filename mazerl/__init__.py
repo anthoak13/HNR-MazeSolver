@@ -7,7 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
-from .maze import Maze, MazeBank, generate_maze, scenario, training_bank, SCENARIOS
+from .maze import (Maze, MazeBank, generate_maze, maze_kind, scenario, training_bank, SCENARIOS,
+                   KINDS, MIX)
 from .env import Rewards
 from .agent import Agent
 from .a2c import train, Settings, Run
@@ -18,10 +19,14 @@ from . import player
 _PRETRAINED = Path(__file__).parent / "pretrained"
 
 
-def random_mazes(n=1, seed=None, locked_frac=0.5):
-    """``n`` new layouts made the same way as the training layouts (but not ones it trained on)."""
+def random_mazes(n=1, seed=None, kind=None):
+    """``n`` new layouts made the same way as the training layouts (but not ones it trained on).
+
+    kind: "open", "interior_break" or "outside_only"; None mixes them like the training set.
+    """
     rng = np.random.default_rng(seed)
-    return [generate_maze(rng, locked=rng.random() < locked_frac) for _ in range(n)]
+    kinds = [kind] * n if kind else rng.choice(KINDS, size=n, p=MIX)
+    return [generate_maze(rng, kind=k) for k in kinds]
 
 
 def show_maze(maze, **kwargs):

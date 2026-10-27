@@ -14,7 +14,7 @@ import torch.nn.functional as F
 
 from .agent import Agent
 from .env import MazeEnv, Rewards, OBS_CHANNELS, CROP, N_COMPASS
-from .maze import training_bank
+from .maze import training_bank, MIX
 
 STAT_KEYS = ("return", "success", "steps", "probes", "breaks", "outside", "new_cells", "bypass")
 
@@ -23,7 +23,7 @@ STAT_KEYS = ("return", "success", "steps", "probes", "breaks", "outside", "new_c
 class Settings:
     episodes: int = 126_000       # attempts (the article: 126,000)
     layouts: int = 13_148         # distinct training layouts (the article: 13,148)
-    locked_frac: float = 0.5      # share of layouts that require breaking an interior wall
+    maze_mix: tuple = MIX         # share of open / interior-break / outside-only layouts
     exclude_bypass: bool = True   # leave attempts that bypassed the maze out of training
     bypass_rule: str = "left"     # bypass = left the maze and never came back in (see MazeEnv)
     learning_rate: float = 1e-3
@@ -99,7 +99,7 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
     s = Settings(**{**asdict(settings or Settings()), **overrides})
     device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     torch.manual_seed(s.seed)
-    bank = bank or training_bank(s.layouts, seed=s.seed, locked_frac=s.locked_frac)
+    bank = bank or training_bank(s.layouts, seed=s.seed, mix=s.maze_mix)
 
     agent = Agent().to(device)
     if start_from is not None:

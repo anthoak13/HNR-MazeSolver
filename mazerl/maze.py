@@ -15,7 +15,7 @@ ARENA = 18          # arena is ARENA x ARENA cells
 BAND = 2            # width of the outside band
 MAZE = ARENA - 2 * BAND
 N_LAYOUTS = 13_148  # number of distinct training layouts in the article
-GENERATOR_VERSION = 2
+GENERATOR_VERSION = 3
 
 _TO_CHAR = {FLOOR: ".", WALL: "#", WEAK: "x", OUTSIDE: ":"}
 _FROM_CHAR = {".": FLOOR, "#": WALL, "x": WEAK, ":": OUTSIDE, "S": FLOOR, "F": FLOOR}
@@ -109,25 +109,56 @@ def _divide(g, rng, r0, r1, c0, c1, doors, max_room):
         _divide(g, rng, r0, r1, x + 1, c1, doors, max_room)
 
 
-def generate_maze(rng, locked=False, n_openings=(3, 6), n_weak=(2, 6), max_room=(6, 25),
+KINDS = ("open", "interior_break", "outside_only")
+MIX = (3 / 7, 2 / 7, 2 / 7)     # share of each kind among the article's 7 training figures
+FLAG_ZONE = (10, 14)             # every figure puts the flag in rows and columns 10-14
+
+
+def generate_maze(rng, kind="open", n_openings=(3, 5), n_weak=(2, 6), max_room=(6, 25),
                   min_flag_dist=12, no_outside_shortcuts=False):
     """Generate one layout in the style of the article's figures.
 
-    locked: seal the flag's region so it can only be reached by breaking an interior weak spot
-        (and never from outside).
+    kind (all three appear among the article's training mazes):
+      "open"            the flag can be reached from inside without breaking anything
+      "interior_break"  the flag's area is sealed off inside; the way in is an interior weak spot
+      "outside_only"    the flag's area is sealed off inside; the way in is an opening in the
+                        outer wall, so the agent has to leave the maze and come back in
     no_outside_shortcuts: close outer openings/weak spots until going around the outside never
-        gives a shorter route to the flag. Off by default: the article's training layouts have
-        such routes, and attempts that use them are left out of training instead (see MazeEnv).
+        gives a shorter route to the flag (off by default; the article's layouts have such routes).
     """
-    for _ in range(200):
-        maze = _try_generate(rng, locked, n_openings, n_weak, max_room, min_flag_dist,
+    if kind not in KINDS:
+        raise ValueError(f"kind must be one of {KINDS}")
+    for _ in range(500):
+        maze = _try_generate(rng, kind, n_openings, n_weak, max_room, min_flag_dist,
                              no_outside_shortcuts)
         if maze is not None:
             return maze
     raise RuntimeError("maze generation failed repeatedly")
 
 
-def _try_generate(rng, locked, n_openings, n_weak, max_room, min_flag_dist, no_outside_shortcuts):
+def _ring():
+    ring = np.zeros((ARENA, ARENA), dtype=bool)
+    ring[BAND:BAND + MAZE, BAND:BAND + MAZE] = True
+    ring[BAND + 1:BAND + MAZE - 1, BAND + 1:BAND + MAZE - 1] = False
+    return ring
+
+
+def _inner(p):
+    """The maze cell just inside outer-wall cell p (None for corners)."""
+    r, c = p
+    lo, hi = BAND, BAND + MAZE - 1
+    if r in (lo, hi) and c in (lo, hi):
+        return None
+    if r == lo:
+        return (r + 1, c)
+    if r == hi:
+        return (r - 1, c)
+    if c == lo:
+        return (r, c + 1)
+    return (r, c - 1)
+
+
+def _try_generate(rng, kind, n_openings, n_weak, max_room, min_flag_dist, no_outside_shortcuts):
     m = np.full((MAZE, MAZE), WALL, dtype=np.int8)
     m[1:-1, 1:-1] = FLOOR
     doors = []
@@ -137,42 +168,55 @@ def _try_generate(rng, locked, n_openings, n_weak, max_room, min_flag_dist, no_o
     grid = np.full((ARENA, ARENA), OUTSIDE, dtype=np.int8)
     grid[BAND:BAND + MAZE, BAND:BAND + MAZE] = m
     start = (BAND, BAND)
-    shift = lambda p: (p[0] + BAND, p[1] + BAND)
+    ring = _ring()
+    walled = lambda g: np.where(g == OUTSIDE, WALL, g)      # the maze with the outside shut
 
-    sealed = np.zeros_like(grid, dtype=bool)
-    if locked:
-        door = shift(doors[rng.integers(len(doors))]) if doors else None
-        if door is None:
+    lo, hi = FLAG_ZONE
+    zone = np.zeros_like(ring)
+    zone[lo:hi + 1, lo:hi + 1] = True
+    cells = np.argwhere(zone & (grid == FLOOR))
+    if len(cells) == 0:
+        return None
+    flag = tuple(int(v) for v in cells[rng.integers(len(cells))])
+
+    # Seal the flag's area off from the start by closing one doorway on the way to it.
+    sealed = np.zeros_like(ring)
+    if kind != "open":
+        options = []
+        for d in doors:
+            d = (d[0] + BAND, d[1] + BAND)
+            grid[d] = WALL
+            if _bfs(walled(grid), start, {FLOOR})[flag] < 0:
+                region = (grid == FLOOR) & (_bfs(walled(grid), flag, {FLOOR}) >= 0)
+                touches_ring = any(region[q] for p in np.argwhere(ring & (grid == WALL))
+                                   if (q := _inner(tuple(p))) is not None)
+                if 6 <= region.sum() <= 60 and (kind == "interior_break" or touches_ring):
+                    options.append((d, region))
+            grid[d] = FLOOR
+        if not options:
             return None
-        grid[door] = WALL
-        sealed = (grid == FLOOR) & (_bfs(grid, start, {FLOOR}) < 0)
-        if not 6 <= sealed.sum() <= 70:
-            return None
-        grid[door] = WEAK
+        door, sealed = options[rng.integers(len(options))]
+        grid[door] = WEAK if kind == "interior_break" else WALL
 
-    ring = np.zeros_like(sealed)
-    ring[BAND:BAND + MAZE, BAND:BAND + MAZE] = True
-    ring[BAND + 1:BAND + MAZE - 1, BAND + 1:BAND + MAZE - 1] = False
-
-    def inner(p):
-        """The maze cell just inside boundary cell p (None for corners)."""
-        r, c = p
-        lo, hi = BAND, BAND + MAZE - 1
-        if r in (lo, hi) and c in (lo, hi):
-            return None
-        if r == lo: return (r + 1, c)
-        if r == hi: return (r - 1, c)
-        if c == lo: return (r, c + 1)
-        return (r, c - 1)
-
-    # Openings in the outer wall (never into the sealed region, never next to the entrance).
+    # Openings in the outer wall. Outside-only mazes get one into the sealed area; otherwise
+    # openings never lead into it.
     cands = [tuple(p) for p in np.argwhere(ring & (grid == WALL))
-             if inner(tuple(p)) is not None and grid[inner(tuple(p))] == FLOOR
-             and not sealed[inner(tuple(p))] and max(p[0], p[1]) > BAND + 2]
-    for i in rng.permutation(len(cands))[:rng.integers(n_openings[0], n_openings[1] + 1)]:
-        grid[cands[i]] = FLOOR
+             if (q := _inner(tuple(p))) is not None and grid[q] == FLOOR and max(p) > BAND + 2]
+    into = [p for p in cands if sealed[_inner(p)]]
+    elsewhere = [p for p in cands if not sealed[_inner(p)]]
+    k = int(rng.integers(n_openings[0], n_openings[1] + 1))
+    chosen = []
+    if kind == "outside_only":
+        if not into:
+            return None
+        chosen.append(into[rng.integers(len(into))])
+        k -= 1
+    chosen += [elsewhere[i] for i in rng.permutation(len(elsewhere))[:k]]
+    for p in chosen:
+        grid[p] = FLOOR
 
     # Weak spots: wall cells with open cells on two opposite sides, so they open into a passage.
+    # In outside-only mazes no interior weak spot may lead into the sealed area.
     open_ = (grid == FLOOR) | (grid == OUTSIDE)
     cands = []
     for r in range(BAND, BAND + MAZE):
@@ -182,27 +226,42 @@ def _try_generate(rng, locked, n_openings, n_weak, max_room, min_flag_dist, no_o
             for a, b in (((r - 1, c), (r + 1, c)), ((r, c - 1), (r, c + 1))):
                 if open_[a] and open_[b]:
                     outer = grid[a] == OUTSIDE or grid[b] == OUTSIDE
-                    if not (outer and (sealed[a] or sealed[b])):
+                    if not (kind == "outside_only" and not outer and sealed[a] != sealed[b]):
                         cands.append((r, c))
                     break
-    for i in rng.permutation(len(cands))[:rng.integers(n_weak[0], n_weak[1] + 1)]:
+    k = int(rng.integers(n_weak[0], n_weak[1] + 1)) - (kind == "interior_break")
+    for i in rng.permutation(len(cands))[:max(k, 0)]:
         grid[cands[i]] = WEAK
-
-    # Flag: far enough from the start, inside the sealed region when locked.
-    dist = _bfs(grid, start, {FLOOR, WEAK})
-    ok = (grid == FLOOR) & ~ring & (dist >= min_flag_dist)
-    if locked:
-        ok &= sealed
-    cells = np.argwhere(ok)
-    if len(cells) == 0:
-        return None
-    flag = tuple(int(v) for v in cells[rng.integers(len(cells))])
 
     if no_outside_shortcuts:
         _remove_outside_shortcuts(grid, start, flag)
-    if locked and path_length(grid, start, flag, {FLOOR, OUTSIDE}) is not None:
+    if not _is_kind(grid, start, flag, kind):
+        return None
+    if path_length(grid, start, flag, {FLOOR, WEAK, OUTSIDE}) < min_flag_dist:
         return None
     return Maze(grid, start, flag)
+
+
+def maze_kind(maze):
+    """Which of the three kinds a layout is (see generate_maze)."""
+    for kind in KINDS:
+        if _is_kind(maze.grid, maze.start, maze.flag, kind):
+            return kind
+    return None
+
+
+def _is_kind(grid, start, flag, kind):
+    inside = np.where(grid == OUTSIDE, WALL, grid)
+    no_break = path_length(inside, start, flag, {FLOOR}) is not None
+    if kind == "open":
+        return no_break
+    if no_break:
+        return False
+    inside_break = path_length(inside, start, flag, {FLOOR, WEAK}) is not None
+    via_opening = path_length(grid, start, flag, {FLOOR, OUTSIDE}) is not None
+    if kind == "interior_break":
+        return inside_break and not via_opening
+    return via_opening and not inside_break
 
 
 def _remove_outside_shortcuts(grid, start, flag):
@@ -227,20 +286,22 @@ def _remove_outside_shortcuts(grid, start, flag):
 class MazeBank:
     """A fixed set of layouts (the article trained on 13,148 of them)."""
 
-    def __init__(self, grids, starts, flags):
+    def __init__(self, grids, starts, flags, kinds=None):
+        self.kinds = None if kinds is None else np.asarray(kinds)
         self.grids = np.asarray(grids, dtype=np.int8)
         self.starts = np.asarray(starts, dtype=np.int64)
         self.flags = np.asarray(flags, dtype=np.int64)
 
     @classmethod
-    def generate(cls, n=N_LAYOUTS, seed=0, locked_frac=0.5, **kwargs):
+    def generate(cls, n=N_LAYOUTS, seed=0, mix=MIX, **kwargs):
         rng = np.random.default_rng(seed)
-        mazes = [generate_maze(rng, locked=rng.random() < locked_frac, **kwargs) for _ in range(n)]
-        return cls.from_mazes(mazes)
+        kinds = rng.choice(KINDS, size=n, p=np.asarray(mix) / np.sum(mix))
+        mazes = [generate_maze(rng, kind=k, **kwargs) for k in kinds]
+        return cls.from_mazes(mazes, kinds)
 
     @classmethod
-    def from_mazes(cls, mazes):
-        return cls([m.grid for m in mazes], [m.start for m in mazes], [m.flag for m in mazes])
+    def from_mazes(cls, mazes, kinds=None):
+        return cls([m.grid for m in mazes], [m.start for m in mazes], [m.flag for m in mazes], kinds)
 
     def __len__(self):
         return len(self.grids)
@@ -249,23 +310,25 @@ class MazeBank:
         return Maze(self.grids[i].copy(), tuple(self.starts[i]), tuple(self.flags[i]))
 
     def save(self, path):
-        np.savez_compressed(path, grids=self.grids, starts=self.starts, flags=self.flags)
+        extra = {} if self.kinds is None else {"kinds": self.kinds}
+        np.savez_compressed(path, grids=self.grids, starts=self.starts, flags=self.flags, **extra)
 
     @classmethod
     def load(cls, path):
         d = np.load(path)
-        return cls(d["grids"], d["starts"], d["flags"])
+        return cls(d["grids"], d["starts"], d["flags"], d["kinds"] if "kinds" in d else None)
 
 
 _CACHE = Path.home() / ".cache" / "mazerl"
 
 
-def training_bank(n=N_LAYOUTS, seed=0, locked_frac=0.5):
+def training_bank(n=N_LAYOUTS, seed=0, mix=MIX):
     """The standard training layouts, generated once and cached on disk."""
-    path = _CACHE / f"bank_v{GENERATOR_VERSION}_n{n}_seed{seed}_locked{locked_frac}.npz"
+    tag = "-".join(f"{x:.3f}" for x in mix)
+    path = _CACHE / f"bank_v{GENERATOR_VERSION}_n{n}_seed{seed}_mix{tag}.npz"
     if path.exists():
         return MazeBank.load(path)
-    bank = MazeBank.generate(n, seed, locked_frac)
+    bank = MazeBank.generate(n, seed, mix)
     path.parent.mkdir(parents=True, exist_ok=True)
     bank.save(path)
     return bank
