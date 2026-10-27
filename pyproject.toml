@@ -13,4 +13,5 @@ dependencies = ["numpy", "torch", "matplotlib", "ipython", "tqdm"]
 include = ["mazerl*"]
 
 [tool.setuptools.package-data]
-mazerl = ["player/*.js", "player/*.css", "pretrained/*.pt", "scenarios/*.txt"]
+mazerl = ["player/*.js", "player/*.css", "pretrained/*.pt", "scenarios/*.txt", "scenarios/training/*.txt",
+          "data/*.npz"]
