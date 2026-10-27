@@ -39,7 +39,7 @@ def playback(agent, maze=None, n_agents=1, seed=0, rewards=None, greedy=False, m
     maze = maze if maze is not None else random_mazes(1, seed)[0]
     maze = scenario(maze) if isinstance(maze, str) else maze
     episode = record(agent, [maze], n_agents=n_agents, rewards=rewards, greedy=greedy, seed=seed,
-                     max_steps=max_steps or 100)[0]
+                     max_steps=max_steps or Settings.max_steps)[0]
     return player.show(episode, **kwargs)
 
 
@@ -68,7 +68,7 @@ def evaluate(agent, n=500, mazes=None, seed=12345, rewards=None, greedy=False, m
     elif isinstance(mazes, str):
         mazes = [scenario(mazes)] * n
     return _evaluate(agent, mazes, rewards=rewards, greedy=greedy, seed=seed,
-                     max_steps=max_steps or 100)
+                     max_steps=max_steps or Settings.max_steps)
 
 
 def load_pretrained(name="base"):

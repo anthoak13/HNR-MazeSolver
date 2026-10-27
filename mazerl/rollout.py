@@ -6,7 +6,7 @@ from .env import MazeEnv, Rewards, PAD
 from .maze import Maze, MazeBank
 
 
-def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=100, seed=0):
+def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, seed=0):
     """Play ``n_agents`` independent attempts on each maze and return one episode dict per maze.
 
     agent: a trained Agent, or None for an untrained agent that moves at random.
@@ -86,7 +86,7 @@ def summarize(episodes):
     return {"attempts": len(agents), **{k: round(float(v), 3) for k, v in stats.items()}}
 
 
-def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=100, seed=0):
+def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=200, seed=0):
     """Play one attempt per maze (all at once) and report how the agent did."""
     rewards = rewards or Rewards()
     bank = mazes if isinstance(mazes, MazeBank) else MazeBank.from_mazes(list(mazes))

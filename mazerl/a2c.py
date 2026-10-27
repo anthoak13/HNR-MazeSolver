@@ -26,11 +26,11 @@ class Settings:
     locked_frac: float = 0.5      # share of layouts that require breaking an interior wall
     exclude_bypass: bool = True   # leave attempts that bypassed the maze out of training
     bypass_rule: str = "left"     # bypass = left the maze and never came back in (see MazeEnv)
-    learning_rate: float = 5e-4
+    learning_rate: float = 1e-3
     discount: float = 0.99
     exploration: float = 0.05     # entropy bonus: rewards keeping move choices varied
     exploration_final: float = 0.01
-    max_steps: int = 100
+    max_steps: int = 200
     n_envs: int = 256
     batch_moves: int = 2048
     gae_lambda: float = 0.95

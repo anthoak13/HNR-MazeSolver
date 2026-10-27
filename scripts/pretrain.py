@@ -1,8 +1,9 @@
 """Train the agents that ship with the package (mazerl/pretrained/*.pt).
 
-    python scripts/pretrain.py base            # the article's setup
-    python scripts/pretrain.py sweep --jobs 3  # reward-variation agents for class
-    python scripts/pretrain.py all
+    python scripts/pretrain.py --list                    # names of all runs
+    python scripts/pretrain.py base                      # one run (what each SLURM array task does)
+    python scripts/pretrain.py base --episodes 2000      # quick smoke test
+    python scripts/pretrain.py all --jobs 3              # everything, 3 at a time on one machine
 
 Each run uses the article's scale (126,000 attempts over 13,148 layouts) unless --episodes is given.
 """
@@ -12,17 +13,15 @@ from pathlib import Path
 
 import torch
 
-from mazerl.a2c import train, Settings
+from mazerl.a2c import train
 from mazerl.env import Rewards
 
 OUT = Path(__file__).resolve().parents[1] / "mazerl" / "pretrained"
 STAGES = (1_000, 5_000, 20_000, 60_000)
 
-BASE_SETTINGS = {}
-BASE = Rewards()
-
-# name -> (reward changes, settings changes); each differs from the base in one way
-SWEEP = {
+# name -> (reward changes, settings changes); each variant differs from "base" in one way
+RUNS = {
+    "base": ({}, {}),
     "outside_free": ({"outside": 0.0}, {}),
     "outside_costly": ({"outside": -0.1}, {}),
     "explore_bonus_big": ({"new_cell": 0.1}, {}),
@@ -32,34 +31,46 @@ SWEEP = {
 }
 
 
-def job(name, reward_changes, settings_changes, episodes, threads):
+def job(name, episodes, threads, device, out, seed):
     torch.set_num_threads(threads)
-    rewards = Rewards(**{**BASE.as_dict(), **reward_changes})
-    overrides = {**BASE_SETTINGS, **settings_changes}
+    reward_changes, overrides = RUNS[name]
+    rewards = Rewards(**reward_changes)
+    overrides = {**overrides, "seed": seed}
     if episodes:
         overrides["episodes"] = episodes
-    run = train(rewards, progress=False, checkpoint_at=STAGES if name == "base" else (), **overrides)
-    OUT.mkdir(exist_ok=True)
-    run.save(OUT / f"{name}.pt")
+    run = train(rewards, device=device, progress=False, checkpoint_at=STAGES, **overrides)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"{name}.pt"
+    run.save(path)
     h = run.history
-    print(f"{name}: {run.seconds / 60:.1f} min, final success {h['success'][-1]:.2f}, "
-          f"outside {h['outside'][-1]:.1f}, bypass {h['bypass'][-1]:.2f}", flush=True)
+    print(f"{name}: {run.seconds / 60:.1f} min on {device or 'auto'}, final success {h['success'][-1]:.2f}, "
+          f"outside {h['outside'][-1]:.1f}, bypass {h['bypass'][-1]:.2f} -> {path}", flush=True)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", choices=["base", "sweep", "all"])
+    ap.add_argument("what", nargs="?", help="a run name (see --list) or 'all'")
+    ap.add_argument("--list", action="store_true")
     ap.add_argument("--episodes", type=int, default=None)
-    ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--jobs", type=int, default=1, help="parallel runs when what='all'")
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--device", default=None, help="cuda / cpu (default: cuda if available)")
+    ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
-    jobs = []
-    if a.what in ("base", "all"):
-        jobs.append(("base", {}, {}))
-    if a.what in ("sweep", "all"):
-        jobs += [(n, r, s) for n, (r, s) in SWEEP.items()]
-    with mp.Pool(a.jobs) as pool:
-        pool.starmap(job, [(n, r, s, a.episodes, a.threads) for n, r, s in jobs])
+    if a.list or not a.what:
+        print("\n".join(RUNS))
+        return
+    names = list(RUNS) if a.what == "all" else [a.what]
+    unknown = [n for n in names if n not in RUNS]
+    if unknown:
+        ap.error(f"unknown run {unknown[0]!r}; use --list")
+    args = [(n, a.episodes, a.threads, a.device, a.out, a.seed) for n in names]
+    if len(args) == 1:
+        job(*args[0])
+    else:
+        with mp.get_context("spawn").Pool(a.jobs) as pool:
+            pool.starmap(job, args)
 
 
 if __name__ == "__main__":
