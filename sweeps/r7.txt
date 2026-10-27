@@ -1,0 +1,12 @@
+base_20k --episodes 20000
+new0.05_20k --episodes 20000 --reward new_cell=0.05
+new0_20k --episodes 20000 --reward new_cell=0.0
+no_outside_only_20k --episodes 20000 --setting maze_mix=1,1,0
+no_interior_20k --episodes 20000 --setting maze_mix=1,0,1
+wall0.05_20k --episodes 20000 --reward probe=-0.05
+base_40k --episodes 40000
+new0.05_40k --episodes 40000 --reward new_cell=0.05
+new0_40k --episodes 40000 --reward new_cell=0.0
+no_outside_only_40k --episodes 40000 --setting maze_mix=1,1,0
+no_interior_40k --episodes 40000 --setting maze_mix=1,0,1
+wall0.05_40k --episodes 40000 --reward probe=-0.05

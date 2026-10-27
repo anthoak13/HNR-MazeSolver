@@ -376,3 +376,38 @@ The time-to-success columns use training success, averaged over 5 log points.
   20k attempts would take 1–2 min, which would make live tuning feasible. That needs the benchmark
   notebook result.
 - **Pretraining's case rests on reuse** (PLAN §10), not speed on the main task.
+
+**Colab T4 timing** (benchmark notebook, early-training rates, so these are upper bounds):
+
+| Colab T4 | Speed | 20k attempts |
+|---|---|---|
+| RL from scratch | 140 attempts/s | ~2.4 min |
+| RL on pretrained perception (frozen) | 229 attempts/s | — |
+| Pretraining | 0.006 s/step, so 3,000 steps take ~20 s | — |
+
+- Colab gives PyTorch **1 CPU thread**, so its CPU fallback is slower than the 2-thread measurements
+  above.
+- **Conclusion:** on a T4, live tuning *is* feasible. A 20k-attempt run takes about 2–3 min, and the
+  article's full 126k takes about 15 min. The A30 runs about 2.4× faster than the T4.
+- Pretraining's speed-up is irrelevant at these speeds. Its case rests on reuse (PLAN §10).
+
+---
+
+## Round 7: Which classroom experiments show their effect in a class-sized budget?
+
+Students would train **from scratch** on a T4. The budgets are 20k attempts (about 2–3 min) and 40k (about
+4–6 min). Every classroom experiment so far was measured at 126k attempts. This round measures each one at
+the class budgets, using the current defaults: mix 1:1:1, new cell +0.005, wall −0.01, seed 0.
+
+**Predictions**, at 20k / 40k attempts:
+
+| Run | Prediction |
+|---|---|
+| baseline | open about 93% / about 97%; breakout about 5% / 10–20%; shortcut went outside *high at 20k* (round 6's 20k run showed 52%: an undertrained agent wanders), lower at 40k (about 25%) |
+| new cell +0.05 (hacking) | moves outside on open mazes **≥ 20 at both budgets**. From scratch, the hacking appeared by 10k |
+| new cell 0 (shortcut) | indistinguishable from the baseline at 20k, because the baseline already wanders; at 40k, shortcut went outside **at least 15 points above the baseline** |
+| no outside_only (1:1:0) | outside_only success **under 30%**, breakout about 0, at both budgets |
+| no interior_break (1:0:1) | interior_break success **under 40%**, breakout about 0, at both budgets |
+| wall −0.05 | probes on interior_break **at least 30% lower** than the baseline at both budgets; breakout lower than the baseline at 40k |
+
+**Status:** submitted. Each run is a single seed, so only large effects count.
