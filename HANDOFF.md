@@ -9,12 +9,14 @@ Read these first:
 ## In flight
 - Nothing on the cluster. Round 10 is done: model size doesn't matter once trained, so everything uses
   the article's default size from now on.
+- **Scope** (from the user): the lesson asks one question, how rewards affect behavior. Every experiment
+  keeps the 1:1:1 maze mix and the default size; only rewards change.
 - **My role** (from the user): map the space by experiment. The user designs and builds the student
   notebook; `TEACHING.md` is a focus document for me, not the notebook's plan.
 - **Convergence gotcha:** a flat final 20% can be the learning-rate anneal, not convergence (round 10,
   small). When convergence matters, check that a longer run doesn't change the result.
 - **Open questions about the space:** whether pretraining is reused on a second task (the escape task
-  below), and what causes Example 2 under the 1:1:1 mix.
+  below), and how the rewards change Example 2 under the 1:1:1 mix.
 
 ## Agreed but not built: the escape task (Part 1 of `TEACHING.md`)
 Same agent, mazes, rewards and pretrained perception, with a different goal:
