@@ -7,9 +7,8 @@ Read these first:
   are in Claude's project memory, which loads automatically.
 
 ## In flight
-- **Round 11** (`EXPERIMENTS.md`), cluster job **37737**: each reward varied on its own, 3 seeds, 126k
-  attempts. When it finishes, re-score every run locally with `scripts/rescore.py` (the cluster ran the
-  suite before path length was added), along with round 4's `mix_1-1-1` runs as the reference.
+- **Round 11 is done** (`EXPERIMENTS.md`): each reward varied on its own. The re-scored `.json` files
+  (with time to finish) are in `runs/r11/rescored/` and `runs/r4/rescored/` on the cluster.
 - **Pretraining and transfer:** a separate agent is testing the escape task locally on CPU, in a git
   worktree, and writing a report. Its runs are well under 126k attempts.
 - The model-size experiments are done (`EXPERIMENTS.md`, round 10): trained to
@@ -23,8 +22,7 @@ Read these first:
 - **Training length:** every run is 126k attempts, the article's number. The user ruled out longer runs
   (no gain, harder story).
 - **Open questions about the space:** whether pretraining is reused on a second task (the escape task
-  below), and how the rewards change how often the agent leaves the article's p.7 maze, which has an
-  inside route to the flag, under the 1:1:1 mix.
+  below), and whatever the user's notebook design needs next.
 
 ## Agreed but not built: the escape task (Part 1 of `TEACHING.md`)
 Same agent, mazes, rewards and pretrained perception, with a different goal:

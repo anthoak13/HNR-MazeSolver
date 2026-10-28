@@ -739,8 +739,9 @@ see weak spots). The reference is the default rewards, scored the same way.
   takes more than how much it wanders.
 
 All round 11 runs, and the default-reward references from round 4, are re-scored locally with
-`scripts/rescore.py` so every number comes from the same suite. Re-scoring a run moves its numbers by
-about 1 point, because the agent's moves are random draws.
+`scripts/rescore.py` so every number comes from the same suite. The agent's moves are random draws, so
+re-scoring moves a run's numbers: by about 1 point on the trained kinds, and by up to 6 points on the p.6
+maze (one maze, 500 attempts; round 4's seed 0 measured 35.8% before and 30.2% after).
 
 **Why these predictions:**
 - The flag (+5) dwarfs every other reward at these values, so the agent still learns to reach it. The
@@ -750,3 +751,69 @@ about 1 point, because the agent's moves are random draws.
   closest match to the LLM story: the agent optimizes the score it's given, not the task we meant.
 
 **Runs:** `sweeps/r11.txt`, 19 runs at 126k (the last two lines, 500k runs, were cancelled), about 50 minutes on `thor`.
+
+**Results** (3 seeds per setting; ranges across seeds; 500 attempts per test; time to finish is moves
+taken divided by the shortest route, on attempts that reached the flag):
+
+| Rewards | Open | Weak-spot | Outside-route | Time to finish: open / weak-spot / outside-route | p.6: reached flag | p.7: left the maze | Wall bumps, weak-spot mazes | Moves outside, open mazes |
+|---|---|---|---|---|---|---|---|---|
+| default | 98.8–99.8% | 89.8–93.2% | 96.6–98.8% | 1.9–2.0 / 2.6–2.8 / 2.8–2.9 | 16–75% | 28–51% | 12.6–15.6 | 5.0–6.5 |
+| exploration 0 | 98.8–99.0% | 94.2% | 97.0–97.4% | 2.0 / 2.6–2.7 / 2.9 | 4–39% | 11–44% | 12.9–14.2 | 5.6–6.5 |
+| exploration +0.05 | 98.0–98.6% | **74.4–88.4%** | 95.2–97.6% | 2.1–2.5 / **3.9–4.1** / 2.1–2.8 | **0–2%** | 19–100% | 6.8–9.3 | **11–38** |
+| wall −0.002 | 99.2–99.4% | 93.6–95.6% | 97.8–98.2% | 1.9–2.0 / 2.5–2.7 / 2.9–3.0 | 16–38% | 17–38% | 13.9–14.7 | 5.2–5.5 |
+| wall −0.05 | 99.0–99.4% | 92.4–93.2% | 96.6–97.8% | 1.9 / **3.0–3.2** / 2.8–2.9 | 3–34% | 6–14% | **8.7–10.0** | 4.8–5.7 |
+| outside 0 | 98.8–99.6% | 88.6–95.8% | 95.8–97.0% | 2.1–2.2 / **2.8–3.5** / 2.1–2.8 | 7–29% | **17–99%** | 15.2–16.7 | **10–33** |
+| outside −0.05 | 99.0–99.4% | 94.2–98.0% | **92.8–94.6%** | 1.9–2.0 / 2.5–2.7 / **3.2–3.4** | 14–29% | **0–6%** | 11.8–12.7 | 2.9–3.3 |
+
+Per seed, for the settings where seeds split:
+
+| Rewards | Seed | Moves outside, open mazes | p.7: left the maze | Weak-spot | Time to finish, weak-spot |
+|---|---|---|---|---|---|
+| exploration +0.05 | 0 / 1 / 2 | 38 / 11 / 36 | 100% / 19% / 100% | 80% / 74% / 88% | 3.9 / 4.1 / 3.9 |
+| outside 0 | 0 / 1 / 2 | 33 / 32 / 10 | 97% / 99% / 17% | 94% / 96% / 89% | 3.5 / 3.4 / 2.8 |
+
+The exploration +0.05 seed that left the p.7 maze only 19% of the time still spent 60 moves outside on
+weak-spot mazes, so it farms too, just less on open and p.7 mazes.
+
+**Evaluation against the predictions:**
+
+| Change | Prediction | Result |
+|---|---|---|
+| exploration 0 | trained kinds within 3 points | ✓ (weak-spot slightly *higher*: 94% vs 90–93%) |
+| | left the p.7 maze ≥ 40% | ✗ 11–44%, no higher than the default |
+| | time to finish at or below the reference | ✓ unchanged |
+| exploration +0.05 | weak-spot below 85% | ✓ for 2 of 3 seeds (74–88%) |
+| | moves outside on open mazes above 30; p.7 about 100%; p.6 under 5% | ✓ for 2 of 3 seeds; p.6 ✓ for all (0–2%) |
+| | time to finish ≥ 1.5× | ✓ on weak-spot mazes (1.5×); ✗ on open (1.1–1.3×) and outside-route mazes (no slower, because it goes outside anyway) |
+| wall −0.002 | within 3 points; more wall bumps; p.6 at or above the reference | trained kinds ✓; wall bumps about the same ✗; p.6 within the reference band |
+| wall −0.05 | weak-spot within 3 points; bumps a third lower | ✓ both (bumps 8.7–10 vs 12.6–15.6) |
+| | p.6 below 36% | ✓ (3–34%), but the reference band starts at 16%, so not distinguishable |
+| | time to finish within 10% | ✗ on weak-spot mazes, 15% slower: it tries fewer walls, so it takes longer to find the weak one |
+| outside 0 | trained kinds within 3 points | ✓ |
+| | left the p.7 maze above 60% | ✓ for 2 of 3 seeds (97–99%; the third 17%) |
+| | moves outside on open mazes under 15 (no farming) | ✗ **for 2 of 3 seeds: 32–33**. They farm |
+| outside −0.05 | outside-route within 3 points | ✗ slightly: 93–95% vs 97–99%, and 15% slower to finish |
+| | left the p.7 maze under 10% | ✓ 0–6% |
+| | p.6 lower but present (10–36%) | ✓ 14–29% |
+
+**What this shows:**
+- **H15 holds for the main score.** Every reward change leaves success on the trained kinds within a few
+  points, except the large exploration reward, which costs weak-spot mazes 5–15 points. The flag
+  dominates, so the agent still learns the task. The rewards change *how* it gets there: how many walls
+  it tries, how long it spends outside, and how direct its route is.
+- **Reward hacking is set by the sign of a step outside, not by the size of the exploration reward.**
+  - With outside free, the default exploration reward (+0.005) makes each new outside square worth a
+    little. Two of three seeds learned to tour the outside, about as much as at +0.05.
+  - So a reward 10× smaller produces the same hacking once a penalty that offset it is removed. The
+    agent exploits a net-positive loop wherever one exists.
+  - Whether a given seed finds the loop varies: one of three seeds didn't, in each farming setting.
+- **Hacking costs efficiency, mostly where the task is hard.** Farming agents take about 1.3–1.5× as long
+  to finish weak-spot mazes, because they tour the outside first. Their score still goes up (7.1 vs 5.0
+  on open mazes at +0.05).
+- **The outside penalty, not the exploration reward, decides how often the agent leaves the p.7 maze**
+  under 1:1:1: 0–6% at −0.05, 28–51% at the default, and 17–99% when free. Removing the exploration reward
+  doesn't change it (11–44%), unlike under the 3:2:2 mix (round 3).
+- **Costly wall bumps make the agent economical but slower.** It tries a third fewer walls and solves
+  weak-spot mazes just as often, but takes 15% longer to find the way.
+- **p.6 success is too noisy across seeds to rank most settings** (16–75% for the default alone). The one
+  clear effect: farming agents almost never reach the p.6 flag (0–2%).
