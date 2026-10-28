@@ -640,4 +640,30 @@ task once their skills match.**
   - If smaller models sit clearly *below* that trend at matched skill, that would be evidence of a
     chaining limit.
 
-**Status:** submitted (xs and tiny only; the other sizes' runs were cancelled as unnecessary).
+**Results** (xs and tiny at 500k attempts; small, default and large from rounds 4/8 at 126k):
+
+| Size | Connections | Open | Interior break | Outside only | Example 1 (impossible task) | Example 2 (needless) |
+|---|---|---|---|---|---|---|
+| xs | 5.5k | 98.4% | 83–87% | 95–96% | 11–21% | 17–66% |
+| tiny | 20k | 99.6% | 93–94% | 98–99% | **37–70%** | 18–47% |
+| small | 71k | 98.2–99.0% | 88–91% | ~97% | 15–22% | 15–35% |
+| default | 230k | 99.4–99.6% | 91–94% | ~98% | **36–74%** | 27–46% |
+| large | 1.1M | 99.0–99.2% | 96% | ~98% | 42–56% | 7% |
+
+- **Convergence:** tiny changed by 0.3–0.4 points over the final 20%, and xs seed 0 by 0.8. xs seed 1 changed
+  by 1.1 points (still rising slowly), just over the threshold; it's accepted as borderline rather than rerun.
+- **Overfitting:** none. Training and unseen-maze success agree within about 1 point in all four runs.
+
+**Evaluation: H14 confirmed.**
+- xs predictions: interior_break above 80% ✓ (83–87%); Example 1 above 10% ✓ (11–21%).
+- **Trained to convergence, tiny matches the default size:** the same interior_break success, the same Example 1
+  rate and the same seed spread, with 1/11 the connections.
+- All sizes fit one trend: Example 1 is 36–74% once interior_break is above about 91%, and 10–22% below it.
+  Nothing suggests larger models chain skills better. **Size buys learning speed.**
+- Small (88–91% at 126k) now sits below the converged tiny, so it was probably not converged either. Round
+  8's check passed it because the learning rate anneals to zero over the final stretch, which flattens any
+  curve. A flat end isn't proof; only a longer run is. Not rerun, since it doesn't change the conclusion.
+- Example 2 varies widely between seeds at every size (7–66%) and shows no size trend.
+
+**Decision:** model size doesn't matter once trained, so everything from here on uses the article's
+default size (229,553 connections). Model size is closed as a topic.

@@ -7,14 +7,14 @@ Read these first:
   are in Claude's project memory, which loads automatically.
 
 ## In flight
-- **Round 10** (`EXPERIMENTS.md`), cluster job **37733**: xs and tiny retrained to 500k attempts,
-  because they hadn't converged at 126k. When it finishes:
-  1. **Check convergence:** training success changed by less than 1 point over the final 20% of
-     attempts. If not, double the budget.
-  2. **Check overfitting:** compare training success with success on unseen mazes. The earlier models
-     all matched to within 1 point.
-  3. **Then compare:** Example 1 against interior-break success, across all sizes. Small, default and
-     large come from rounds 4/8; those runs converged.
+- Nothing on the cluster. Round 10 is done: model size doesn't matter once trained, so everything uses
+  the article's default size from now on.
+- **My role** (from the user): map the space by experiment. The user designs and builds the student
+  notebook; `TEACHING.md` is a focus document for me, not the notebook's plan.
+- **Convergence gotcha:** a flat final 20% can be the learning-rate anneal, not convergence (round 10,
+  small). When convergence matters, check that a longer run doesn't change the result.
+- **Open questions about the space:** whether pretraining is reused on a second task (the escape task
+  below), and what causes Example 2 under the 1:1:1 mix.
 
 ## Agreed but not built: the escape task (Part 1 of `TEACHING.md`)
 Same agent, mazes, rewards and pretrained perception, with a different goal:
