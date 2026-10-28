@@ -467,6 +467,9 @@ by 40k (94%). Costly probing slows early learning broadly.
 
 ## Round 8: How do competence and the emergent breakout scale with model size?
 
+> **Superseded by round 10.** These runs used a fixed 126k-attempt budget, and the smaller models had
+> not finished learning: xs was still gaining about 5 points per 20k attempts.
+
 The breakout combines skills, and the network has to hold all of them at once. In LLMs, some abilities
 appear only above a certain model size. Does anything like that happen here?
 
@@ -539,6 +542,8 @@ All sizes left the maze and reached depth 1 (broke back in from outside) in at l
 
 ## Round 9: Going smaller. Where does chaining fail while single skills survive?
 
+> **Superseded by round 10:** these models were undertrained (see round 8's note).
+
 The tiny model (20k) still solves 98% of open mazes and reaches the enclosed flag 15–29% of the time.
 Round 8 never found the capacity limit.
 
@@ -597,3 +602,39 @@ All sizes left the maze in 100% of attempts.
 - **Below about 3k connections, training is erratic.** The same size gives very different agents (outside_only
   1% vs 60%; open 28% vs 74%). Example 2 numbers there are mostly noise.
 - **Nano:** open fell below 80% for one seed (28%), not the other (74%). ✓/✗.
+
+
+---
+
+## Round 10: Model size, with every model trained to convergence
+
+Rounds 8–9 compared models after the same 126k attempts. Smaller models learn more slowly, so that
+compared trained large models against half-trained small ones.
+
+**Protocol.**
+- Every size trains for **500k attempts** (4× the earlier budget), with the learning rate annealed over
+  the whole run.
+- A run counts as **converged** if its training success changed by less than 1 point over its final
+  20% of attempts. If it didn't, it's rerun with double the budget.
+- Two seeds per size.
+
+| Size | Connections |
+|---|---|
+| xs | 5.5k |
+| tiny | 20k |
+| small | 71k |
+| default | 230k |
+| large | 1.1M |
+
+**H14: at convergence, smaller models match the larger ones on single skills, and on the multi-step
+task once their skills match.**
+- *Predictions:*
+  - Default, large and small change little from round 8: interior_break within 3 points, Example 1
+    within the seed spread.
+  - Tiny and xs improve: xs interior_break **above 80%**, Example 1 **above 10%**.
+  - Plotting Example 1 against interior_break success, all sizes lie on one trend. That would mean
+    model size buys learning speed, not separate "reasoning."
+  - If smaller models sit clearly *below* that trend at matched skill, that would be evidence of a
+    chaining limit.
+
+**Status:** submitted.

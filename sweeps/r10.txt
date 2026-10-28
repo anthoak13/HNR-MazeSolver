@@ -1,0 +1,10 @@
+xs_s0 --episodes 500000 --seed 0 --setting net_channels=8,8,8 --setting net_hidden=16
+xs_s1 --episodes 500000 --seed 1 --setting net_channels=8,8,8 --setting net_hidden=16
+tiny_s0 --episodes 500000 --seed 0 --setting net_channels=16,16,16 --setting net_hidden=32
+tiny_s1 --episodes 500000 --seed 1 --setting net_channels=16,16,16 --setting net_hidden=32
+small_s0 --episodes 500000 --seed 0 --setting net_channels=16,32,32 --setting net_hidden=64
+small_s1 --episodes 500000 --seed 1 --setting net_channels=16,32,32 --setting net_hidden=64
+default_s0 --episodes 500000 --seed 0 --setting net_channels=32,64,64 --setting net_hidden=100
+default_s1 --episodes 500000 --seed 1 --setting net_channels=32,64,64 --setting net_hidden=100
+large_s0 --episodes 500000 --seed 0 --setting net_channels=64,128,128 --setting net_hidden=256
+large_s1 --episodes 500000 --seed 1 --setting net_channels=64,128,128 --setting net_hidden=256
