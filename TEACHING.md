@@ -5,14 +5,13 @@ Behavior Starts With Its Training"* beforehand. The evidence behind each claim i
 the build details are in `PLAN.md`.
 
 ## Goals
-The activity has two halves:
-
-1. **Rogue behavior comes from training** (the article). Students reproduce the article's two examples
+1. **How these agents are built: pretraining, then RL.** One model learns to "see" mazes with no rewards
+   at all. Then RL turns it into an agent for a task, and possibly for different tasks from the same
+   pretrained model. This is the recipe behind LLM agents. *Whether RL for several tasks from one
+   pretrained model works well enough for class is still untested* (`PLAN.md` §10). If it doesn't, this
+   part shrinks to a short explanation.
+2. **Rogue behavior comes from training** (the article). Students reproduce the article's two examples
    and see how rewards and training experience cause them.
-2. **Pretraining, then RL for different tasks** (how LLMs are built). One model learns to "see" mazes
-   with no rewards at all. Then RL turns that same model into agents for different jobs. *This half
-   depends on an experiment that hasn't been run yet* (`PLAN.md` §10). It stays only if RL on top of the
-   pretrained model clearly works for more than one task within class time.
 
 ## The article's two examples
 
@@ -31,29 +30,27 @@ available")
 
 ## Path through the activity
 
-**Half 1: rogue behavior from training**
+**Part 1: building an agent**
 1. **The article's model, in code.** What the agent sees (a 5×5 view, memory, a compass), the points for
    each event, and an untrained agent moving at random.
-2. **Watch training.** A trained agent at different stages of training, and its reward curves, which are
-   like the cost curves from 05-01.
-3. **Example 1.** Predict, then watch the trained agent on the impossible maze. It breaks out in a large
+2. **Pretraining.** The model learns to predict unseen parts of the maze and where unexplored ground is,
+   with no rewards. This is the analog of next-word prediction.
+3. **RL on top.** Train the pretrained model to reach the flag. Watch its reward curves (like the cost
+   curves from 05-01) and the agent at different stages of training. Compare it with an agent trained
+   from scratch.
+4. **A second task from the same pretrained model** (if it works), for example escaping the maze. Rewards
+   decide what the model is *for*; pretraining decides what it *understands*.
+
+**Part 2: rogue behavior from training**
+5. **Example 1.** Predict, then watch the trained agent on the impossible maze. It breaks out in a large
    share of attempts, though not every time.
-4. **Why it can.** Agents trained without mazes that require going outside, or without mazes that require
-   breaking walls, never break out. Students can train one of these live (a few minutes) and see the
-   missing skill.
-5. **Example 2 and reward design.** Raise the exploration reward and train live. The agent tours the
+6. **Why it can.** Agents trained without mazes that require going outside, or without mazes that require
+   breaking walls, never break out. Students can train one of these live and see the missing skill.
+7. **Example 2 and reward design.** Raise the exploration reward and train live. The agent tours the
    outside farming points, and on the p.7 maze it leaves every time. That's reward hacking.
-6. **Discussion.** Our filter that drops attempts ending outside didn't catch the hacking: monitoring
+8. **Discussion.** Our filter that drops attempts ending outside didn't catch the hacking: monitoring
    outcomes misses an agent gaming the process. Also responsibility, and sandbox design. Optional: bigger
    models chain the steps more reliably.
-
-**Half 2: one pretrained model, several jobs** (if the experiment supports it)
-1. **Pretraining.** The model learns to predict unseen parts of the maze and where unexplored ground is.
-   No rewards are involved. This is the analog of next-word prediction.
-2. **RL on top, task 1:** reach the flag. Compare it with an agent trained from scratch.
-3. **RL on top, task 2,** for example escaping the maze, from the *same* pretrained model.
-4. **Discussion:** why build models this way. Rewards decide what the model is *for*; pretraining
-   decides what it *understands*.
 
 ## What to expect
 - **Hardware:** a Colab T4. A live training run takes about 2–5 minutes.
@@ -63,3 +60,49 @@ available")
   time, or 75%. That's worth telling students: training is not deterministic.
 - **The maze rules are our simplified version** of the article's model, and the notebook says which parts
   are ours.
+
+## Deliverables to package
+
+**Trained weights** (shipped in `mazerl/pretrained/`, trained on the cluster):
+
+| Step | Weights | Status |
+|---|---|---|
+| 2 | pretrained perception (no rewards) | method built; final weights to train |
+| 3 | RL on pretrained perception, flag task, **with snapshots at several stages of training** | to train |
+| 3 | RL from scratch, flag task, the same budget, for comparison | to train |
+| 4 | RL on pretrained perception, second task, with stage snapshots | the task is still to design and test |
+| 5, 7 | `base`: full-scale flag agent with stage snapshots, a typical seed (not the best) | to train |
+| 6 | `base` trained without outside-only mazes | to train |
+| 6 | `base` trained without interior-break mazes | to train |
+| 7 | `base` trained with a high exploration reward (backup if live training isn't possible) | to train |
+| 8 (optional) | small and large versions of `base` | to train |
+
+**Maze files:**
+
+| Item | Status |
+|---|---|
+| the article's two test mazes (pp. 6–7) | done |
+| the 13,148 training layouts | done |
+
+**Code students call:**
+
+| Function | Status |
+|---|---|
+| animated playback of one or several agents | done |
+| agents from several training stages side by side | done |
+| evaluation on new mazes or the article's mazes | done |
+| breakout stages: left, broke in, reached the flag | done; needs to be exposed in the API |
+| reward curves | done |
+| live training with progress bars | done |
+| a warning when no GPU is available | to build |
+| what the agent sees (view, memory, compass) | to build |
+| where an attempt's points came from | to build |
+| the second task's environment | to build if Part 1 step 4 stays |
+
+**Notebooks:**
+
+| Notebook | Status |
+|---|---|
+| student notebook following this path, with prediction questions in the 05-0x style | to write |
+| instructor key | to write |
+| Colab speed check | done |
