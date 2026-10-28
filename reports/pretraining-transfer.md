@@ -115,3 +115,19 @@ each with its own pretraining run) for scratch and pretrained on both tasks, 20k
   over the run, and higher success on weak-spot mazes in the test.
 - **Flag:** no consistent direction. Across all four seeds, the pretrained-minus-scratch difference in
   average training success changes sign at least once.
+
+## Round T4 predictions (written after T3, before running T4)
+**Finding that prompted this:** on the flag task, pretrained perception plus fresh decision layers
+starts with a lopsided policy (one move favored at 61–97%; from scratch the start is even). When the
+favored move leads out the entrance, nearly every attempt ends outside and is excluded from training,
+so the agent barely learns (seed 2: no update for the first 10k attempts). The standard fix is to
+start the move-choice layer's weights near zero (×0.01), which gives an even starting policy.
+
+Runs, flag task, 20k, with the even start: pretrained perception (seeds 0–3), from scratch (seeds 0–1),
+pretrained perception locked (seeds 0–1).
+- **Pretrained, even start:** no stalls: every seed is above 5% average training success over its
+  first 5k attempts. Average training success over the run is **above from-scratch on at least 3 of 4
+  seeds**, by 5–15 points. Test success on weak-spot mazes at least matches from-scratch.
+- **From scratch, even start:** within seed noise of from scratch without it (average training success
+  within ±6 points), since its start is already even.
+- **Pretrained locked, even start:** both seeds' open-maze test success **≥ 75%** (was 62–75%).

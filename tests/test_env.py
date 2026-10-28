@@ -251,3 +251,15 @@ def test_escape_training_runs():
     run = train(task="escape", episodes=300, n_envs=16, batch_moves=256, bank=bank, device="cpu",
                 progress=False)
     assert run.settings.task == "escape" and run.history["bypass"][-1] == 0
+
+
+def test_small_policy_init_gives_even_start_on_pretrained_perception():
+    from mazerl.a2c import train
+    bank = MazeBank.from_mazes([Maze.from_ascii(SIMPLE)])
+    run = train(episodes=1, n_envs=4, batch_moves=10_000, bank=bank, device="cpu", progress=False,
+                policy_init_scale=0.01)
+    env, _ = make_env()
+    obs, comp = env.observe()
+    with torch.no_grad():
+        logits, _ = run.agent(obs, comp)        # no update happened (batch_moves not reached)
+    assert logits.abs().max().item() < 0.05

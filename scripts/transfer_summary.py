@@ -27,15 +27,19 @@ def crossing(history, level):
 
 def label(r):
     if r["start"] == "scratch":
-        return "random perception (frozen)" if r["frozen"] else "scratch"
-    kind = "pretrained" if "reward-free" in r["start_source"] else "from " + Path(r["start"]).stem
-    return kind + (" (frozen)" if r["frozen"] else "")
+        even = ", even start" if r.get("policy_init_scale", 1.0) != 1.0 else ""
+        return ("random perception (frozen)" if r["frozen"] else "scratch") + even
+    kind = "pretrained" if "reward-free" in r["start_source"] else "perception from a flag-trained agent"
+    even = ", even start" if r.get("policy_init_scale", 1.0) != 1.0 else ""
+    return kind + (" (frozen)" if r["frozen"] else "") + even
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
     ap.add_argument("--plot", default=None)
+    ap.add_argument("--only", default=None, help="comma-separated starting points to plot")
+    ap.add_argument("--data", default=None, help="write a compact JSON of results (block curves, tests)")
     a = ap.parse_args()
     runs = [json.load(open(f)) for f in a.files]
     runs.sort(key=lambda r: (r["task"], label(r), r["seed"]))
@@ -51,7 +55,13 @@ def main():
               + "  ".join(f"to{int(lv * 100)}% {c if c is not None else '-':>6}" for lv, c in zip(t, cross))
               + "  | " + "  ".join(f"{k[:8]} {v:.1%}/{moves[k]:.0f}mv" for k, v in tests.items()))
     if a.plot:
-        plot(runs, a.plot)
+        plot(runs, a.plot, only=a.only.split(",") if a.only else None)
+    if a.data:
+        compact = [{"name": r["name"], "task": r["task"], "seed": r["seed"], "start": label(r),
+                    "episodes": r["episodes"],
+                    "success_per_1000_attempts": [round(v, 1) for v in blocks(r["history"])[1]],
+                    "tests": r["tests"]} for r in runs]
+        Path(a.data).write_text(json.dumps(compact, indent=1))
 
 
 def blocks(history, size=1000, total=None):
@@ -61,35 +71,40 @@ def blocks(history, size=1000, total=None):
     mids, vals = [], []
     for a in range(0, total, size):
         m = (e > a) & (e <= a + size)
-        if m.any():
-            mids.append((a + size / 2) / 1000)
-            vals.append(s[m].mean() * 100)
+        mids.append((a + size / 2) / 1000)
+        vals.append(s[m].mean() * 100 if m.any() else np.nan)
     return np.array(mids), np.array(vals)
 
 
-def plot(runs, path, panels=None):
+SHOW = {"scratch": "from scratch", "pretrained": "pretrained perception",
+        "pretrained (frozen)": "pretrained perception, locked",
+        "random perception (frozen)": "random perception, locked"}
+
+
+def plot(runs, path, panels=None, only=None):
     """One panel per task; one line per starting point (mean of seeds), band = range across seeds."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from mazerl.viz import SERIES, _style
     tasks = panels or sorted({r["task"] for r in runs}, reverse=True)
-    order = ["scratch", "pretrained", "pretrained (frozen)", "random perception (frozen)"]
+    order = ["scratch", "pretrained", "perception from a flag-trained agent", "pretrained (frozen)",
+             "random perception (frozen)"]
+    runs = [r for r in runs if only is None or label(r) in only]
     labels = sorted({label(r) for r in runs}, key=lambda l: (order.index(l) if l in order else 9, l))
-    color = {l: SERIES[i % len(SERIES)] for i, l in enumerate(labels)}
+    color = {l: SERIES[order.index(l) if l in order else 5] for l in labels}
     fig, axes = plt.subplots(1, len(tasks), figsize=(5.4 * len(tasks), 3.8), squeeze=False)
     for ax, task in zip(axes[0], tasks):
         for l in labels:
             group = [r for r in runs if r["task"] == task and label(r) == l]
             if not group:
                 continue
-            curves = [blocks(r["history"]) for r in group]
-            n = min(len(c[0]) for c in curves)
-            x = curves[0][0][:n]
-            ys = np.array([c[1][:n] for c in curves])
-            ax.fill_between(x, ys.min(0), ys.max(0), color=color[l], alpha=0.18, lw=0)
-            ax.plot(x, ys.mean(0), color=color[l], lw=2, label=f"{l} ({len(group)} seeds)")
-        _style(ax, f"{task} task: success during training (%)")
+            curves = [blocks(r["history"], total=r["episodes"]) for r in group]
+            x = curves[0][0][1:]                       # skip the first 1,000 attempts (see crossing)
+            ys = np.array([c[1][1:] for c in curves])
+            ax.fill_between(x, np.nanmin(ys, 0), np.nanmax(ys, 0), color=color[l], alpha=0.18, lw=0)
+            ax.plot(x, np.nanmean(ys, 0), color=color[l], lw=2, label=f"{SHOW.get(l, l)} ({len(group)} seeds)")
+        _style(ax, f"{'Reach the flag' if task == 'flag' else 'Escape the maze'}: success during training (%)")
         ax.set_xlabel("attempts (thousands)", fontsize=9)
         ax.set_ylim(0, 100)
         ax.legend(frameon=False, fontsize=8, loc="lower right")

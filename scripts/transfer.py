@@ -37,6 +37,8 @@ def main():
     ap.add_argument("--episodes", type=int, default=20_000)
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--evaluate", type=int, default=300, help="attempts per test in the test suite")
+    ap.add_argument("--policy-init-scale", type=float, default=1.0,
+                    help="shrink the fresh move-choice layer at the start (0.01: even starting policy)")
     ap.add_argument("--name", required=True)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -44,13 +46,14 @@ def main():
 
     perception, source = (None, "none") if a.start == "scratch" else load_start(a.start)
     run = train(task=a.task, seed=a.seed, episodes=a.episodes, device="cpu", progress=False,
-                perception=perception, freeze_perception=a.freeze,
+                perception=perception, freeze_perception=a.freeze, policy_init_scale=a.policy_init_scale,
                 checkpoint_at=(1_000, 2_000, 5_000, 10_000))
     a.out.mkdir(parents=True, exist_ok=True)
     run.save(a.out / f"{a.name}.pt")
     report = standard_report(run, n=a.evaluate)
     summary = {"name": a.name, "task": a.task, "seed": a.seed, "episodes": a.episodes,
                "start": a.start, "start_source": source, "frozen": a.freeze,
+               "policy_init_scale": a.policy_init_scale,
                "minutes": run.seconds / 60, "history": run.history, "tests": report}
     (a.out / f"{a.name}.json").write_text(json.dumps(summary, indent=1, default=str))
     print(a.name, f"{run.seconds / 60:.1f} min", {k: v["reached flag"] for k, v in report.items()}, flush=True)

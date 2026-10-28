@@ -41,6 +41,8 @@ class Settings:
     net_hidden: int = 100                # reasoning layers' size
     seed: int = 0
     task: str = "flag"                   # "flag" (the article's) or "escape" (see MazeEnv)
+    policy_init_scale: float = 1.0       # shrink the fresh move-choice layer's starting weights; 0.01
+                                         #   gives an even starting policy even on pretrained perception
 
 
 @dataclass
@@ -115,6 +117,10 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
         agent.load_state_dict(src.state_dict())
     if perception is not None:
         agent.load_perception(perception)
+    if s.policy_init_scale != 1.0 and start_from is None:
+        with torch.no_grad():
+            agent.policy.weight.mul_(s.policy_init_scale)
+            agent.policy.bias.mul_(s.policy_init_scale)
     agent.freeze_perception(freeze_perception)
     opt = torch.optim.Adam([p for p in agent.parameters() if p.requires_grad], lr=s.learning_rate)
     env = MazeEnv(bank, s.n_envs, rewards, s.max_steps, device, seed=s.seed, bypass_rule=s.bypass_rule,
