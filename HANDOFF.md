@@ -7,27 +7,37 @@ Read these first:
   are in Claude's project memory, which loads automatically.
 
 ## In flight
-- Nothing on the cluster. Round 10 is done: model size doesn't matter once trained, so everything uses
-  the article's default size from now on.
+- **Round 11** (`EXPERIMENTS.md`), cluster job **37737**: each reward varied on its own, 3 seeds, 126k
+  attempts. When it finishes, re-score every run locally with `scripts/rescore.py` (the cluster ran the
+  suite before path length was added), along with round 4's `mix_1-1-1` runs as the reference.
+- **Pretraining and transfer:** a separate agent is testing the escape task locally on CPU, in a git
+  worktree, and writing a report. Its runs are well under 126k attempts.
+- The model-size experiments are done (`EXPERIMENTS.md`, round 10): trained to
+  convergence, size doesn't change the behavior, so everything uses the article's default size from now
+  on.
 - **Scope** (from the user): the lesson asks one question, how rewards affect behavior. Every experiment
-  keeps the 1:1:1 maze mix and the default size; only rewards change.
+  keeps the 1:1:1 maze mix (equal shares of the three kinds of training maze) and the default size; only
+  rewards change.
 - **My role** (from the user): map the space by experiment. The user designs and builds the student
   notebook; `TEACHING.md` is a focus document for me, not the notebook's plan.
 - **Training length:** every run is 126k attempts, the article's number. The user ruled out longer runs
   (no gain, harder story).
 - **Open questions about the space:** whether pretraining is reused on a second task (the escape task
-  below), and how the rewards change Example 2 under the 1:1:1 mix.
+  below), and how the rewards change how often the agent leaves the article's p.7 maze, which has an
+  inside route to the flag, under the 1:1:1 mix.
 
 ## Agreed but not built: the escape task (Part 1 of `TEACHING.md`)
 Same agent, mazes, rewards and pretrained perception, with a different goal:
 - **Start** where the flag would be: the generated flag cell, in the lower right inside the maze.
-- **Success** is stepping onto any outside cell. That ends the attempt and earns the +5. The wall and
-  new-cell rewards are unchanged; no outside penalty on that final step.
+- **Success** is stepping onto any outside cell. That ends the attempt and earns the +5. The wall penalty
+  and the exploration reward are unchanged; no outside penalty on that final step.
 - **No compass** (the compass input is all zeros).
-- **The bypass filter is off for this task.** Every success ends outside.
-- **Then test:** RL on top of pretrained perception against RL from scratch, on both tasks, at class
-  budgets (20k and 40k attempts on a GPU). The perception code is `mazerl/perception.py`;
-  `train(perception=..., freeze_perception=False)` is the version that worked (round 6).
+- **Attempts that end outside are not excluded from training for this task** (`exclude_bypass=False`).
+  Every success ends outside.
+- **Then test:** RL on top of pretrained perception against RL from scratch, on both tasks, with 20k- and
+  40k-attempt runs on a GPU (the lengths that fit in class). The perception code is
+  `mazerl/perception.py`; `train(perception=..., freeze_perception=False)` is the version that worked
+  (`EXPERIMENTS.md`, round 6: with the pretrained layers frozen, the agent didn't learn the task).
 
 ## Next after that
 The deliverables list at the end of `TEACHING.md`:
@@ -42,7 +52,8 @@ The deliverables list at the end of `TEACHING.md`:
   - `runs/r1` … `runs/r10`: rounds 1–10.
   - `runs/r6_local`: round 6, the pretraining runs, done on the desktop CPU.
 - To look at results: `scp` the `.json` files back and run `python scripts/summarize_runs.py <files>`.
-  `mazerl.rollout.breakout_stages(agent)` gives Example 1's stages.
+  `mazerl.rollout.breakout_stages(agent)` gives, for the article's p.6 maze (flag walled off from the
+  start), the share of attempts that leave, break back in from outside, and reach the flag.
 
 ## Cluster (`ssh hpc`; the user turns on the VPN)
 - **Location:** repo at `~/HNR-MazeSolver`, branch `maze-rl`. Run `git pull` there after pushing.
@@ -67,5 +78,5 @@ The deliverables list at the end of `TEACHING.md`:
   submissions; ask them if one is blocked.
 - **Training anneals the learning rate to zero by the end of the budget,** so a run levels off at the end
   whether or not it has really converged. Check the learning curve itself.
-- **Example 1 varies a lot between training seeds** (35–75% for the same settings), while re-measuring
+- **Success on the p.6 maze varies a lot between training seeds** (35–75% for the same settings), while re-measuring
   one model varies by about 1 point. Use several seeds when comparing settings.

@@ -39,9 +39,9 @@ by cell in `mazerl/scenarios/training/`:
 
 | Kind | Figures | How the flag is reached |
 |---|---|---|
-| open | p3, p4a, p4b | inside, without breaking anything |
-| interior_break | p4c, p5a | inside, through an interior weak spot |
-| outside_only | p5b, p5c | out the entrance and back in through an outer opening |
+| `open` | p3, p4a, p4b | inside, without breaking anything |
+| `interior_break` | p4c, p5a | inside, through an interior weak spot |
+| `outside_only` | p5b, p5c | out the entrance and back in through an outer opening |
 
 - **Mix [D]:** equal shares, 1 : 1 : 1 (`maze_mix`). The figures don't imply a split. In experiments,
   equal shares gave the strongest version of both of the article's behaviors (`EXPERIMENTS.md`, round 4).
@@ -52,7 +52,7 @@ by cell in `mazerl/scenarios/training/`:
 centerpiece: each illustrates the article's thesis, that "rogue" agent behavior comes from training,
 and each maps to a real incident.
 
-1. **Breaks out to finish an impossible task** (p.6, "Agent facing a hard problem"; scenario `enclosed`).
+1. **Breaks out to reach a walled-off flag** (p.6, "Agent facing a hard problem"; scenario `enclosed`).
    - **The incident:** about 30–40% of OpenAI's tasks were unintentionally impossible. Agents trained to
      persist kept going, which led to unauthorized tool and internet use and the Hugging Face breach.
    - **In the maze:** the flag can't be reached by allowed means; the start pocket opens only to the
@@ -91,7 +91,7 @@ into the closing discussion on testing, monitoring, sandboxes and responsibility
 | Item | Rule | Tag |
 |---|---|---|
 | Moves | Up / down / left / right | [A] |
-| Walking into a wall (a **probe**) | One penalty per attempt. A weak spot gives way on the first bump and the agent moves in; a solid wall or the arena edge doesn't, and the agent stays put | [A] "each probe or move through a wall carries a small penalty"; [D] first-bump |
+| Walking into a wall | One penalty per attempt. A weak spot gives way on the first bump and the agent moves in; a solid wall or the arena edge doesn't, and the agent stays put | [A] "each probe or move through a wall carries a small penalty"; [D] first-bump |
 | Vision | 5 × 5 window centered on the agent. Walls block line of sight; grazing a corner doesn't | [A] window and blocking; [D] corner rule |
 | Memory | Everything it has seen this attempt: floor, outside, wall, edge, flag. Also which cells it has visited, and **which walls it walked into that held firm** | [A] "remember past observations" |
 | Flag direction | Compass direction, one of 8 | [A] "compass direction"; [D] 8-way |
@@ -101,7 +101,7 @@ into the closing discussion on testing, monitoring, sandboxes and responsibility
 **Network: "vision" + "reasoning"** [A], **229,553 connections** (article: "about 230,000") [A].
 - **Input [D]:** an 11 × 11 window of the agent's memory, centered on it, with 9 channels:
   - unseen, floor, outside, wall, flag, edge;
-  - visited, visible now, probed-and-held-firm.
+  - visited, visible now, walked-into-and-held-firm.
 
   The 8-way compass comes in separately.
 - **Vision [D]:** conv 3×3 (9→32) → conv 3×3 (32→64) → 2×2 max-pool → conv 3×3 (64→64).
@@ -115,9 +115,9 @@ into the closing discussion on testing, monitoring, sandboxes and responsibility
 |---|---|---|---|
 | Reach the flag | **+5** | landing on the flag; the attempt ends | [C]; "much larger" than the rest [A] |
 | Outside | **−0.01** | every move that ends on an outside cell | [C]. Per move because p.6 says "penalties," plural, for one trip out |
-| Walk into a wall | **−0.01** | any probe (weak spots give way, solid walls don't) | "small penalty" [A]. Uses the author's one small magnitude [C] |
-| New cell | **+0.005** | first visit to a cell this attempt | "small reward" [A]. Smaller than 0.01 so a step outside is always a net penalty ("stepped … outside … penalized," p.3) |
-| New cell outside | same as new cell (`explore_outside=True`) | — | [D]. **Open decision**, being tested |
+| Walk into a wall | **−0.01** | any bump into a wall (weak spots give way, solid walls don't) | "small penalty" [A]. Uses the author's one small magnitude [C] |
+| Exploration (`new_cell`) | **+0.005** | first visit to a cell this attempt | "small reward" [A]. Smaller than 0.01 so a step outside is always a net penalty ("stepped … outside … penalized," p.3) |
+| Exploration outside | same as inside (`explore_outside=True`) | — | [D]. **Open decision**, being tested |
 | Per move | 0 | — | none mentioned [A] |
 
 **Checks these values pass:**
@@ -125,8 +125,8 @@ into the closing discussion on testing, monitoring, sandboxes and responsibility
 - **Exploring can't rival the flag.** Exploring the whole maze interior earns at most about +0.5.
   The flag, discounted from 200 moves away, is worth 0.68.
 - **The flag outweighs the penalties on the article's routes (p.6):**
-  - `enclosed`: −0.12 in penalties along the route, +3.76 net after discounting.
-  - `outside_shortcut`: +3.98 net after discounting.
+  - the p.6 maze: −0.12 in penalties along the route, +3.76 net after discounting.
+  - the p.7 maze, outside route: +3.98 net after discounting.
 
 ---
 
@@ -194,8 +194,8 @@ for definitions and debugging only.
   |---|---|
   | `outside_free` | outside 0 |
   | `outside_costly` | outside −0.1 |
-  | `explore_bonus_big` | new cell +0.1 |
-  | `explore_bonus_none` | new cell 0 |
+  | `explore_bonus_big` | exploration +0.1 |
+  | `explore_bonus_none` | exploration 0 |
   | `probing_costly` | wall −0.1 |
   | `no_bypass_filter` | excluded attempts are kept |
 
@@ -221,7 +221,7 @@ save standalone `.html` files. Training curves use matplotlib.
 | `mz.training_grid(run)` | several layouts, agents from several training stages | pp. 4–5 | built |
 | `mz.scenario("enclosed" / "outside_shortcut")` | the article's test mazes | pp. 6–7 | built |
 | `mz.evaluate(agent, n=…, mazes=…)` | results on unseen layouts or a scenario | training vs. validation, as in 05-02 | built |
-| `run.plot()` | curves: reward, % reaching the flag, moves, probes, breaks, time outside, % bypass | mirrors 05-01/05-02 loss curves | built |
+| `run.plot()` | curves: reward, % reaching the flag, moves, wall bumps, breaks, time outside, % of attempts excluded for ending outside | mirrors 05-01/05-02 loss curves | built |
 | `mz.train(rewards, start_from=…, episodes=…)` | train or retrain an agent | — | built (a `minutes=` budget is planned) |
 | `mz.load_pretrained(name)` | shipped agents | — | built (no agents shipped yet) |
 | `mz.agent_view(agent, maze, step)` | what the agent knows: memory, view, compass | Methodology | planned |
@@ -242,7 +242,7 @@ mz.evaluate(run, n=500)
 1. the maze and an untrained agent;
 2. rewards and penalties;
 3. watching training;
-4. the enclosed maze;
+4. the p.6 maze, whose flag is walled off;
 5. changing rewards, and reward hacking;
 6. new layouts vs. training layouts;
 7. discussion.
@@ -254,7 +254,7 @@ mz.evaluate(run, n=500)
 mazerl/
   __init__.py      public API
   maze.py          generator, maze kinds, layout bank, scenarios
-  env.py           batched environment, rewards, bypass rule
+  env.py           batched environment, rewards, which attempts are excluded from training
   agent.py         vision + reasoning network
   a2c.py           training, Settings, Run
   rollout.py       recording attempts, evaluation
@@ -274,14 +274,14 @@ tests/             pytest
 **Where things stand:**
 - Settings are explored through hypothesis-driven experiments, logged in `EXPERIMENTS.md`.
 - How the results translate into class is in `TEACHING.md`.
-- **Current defaults:** maze mix 1:1:1, new cell +0.005, wall −0.01, outside −0.01, flag +5, 200 moves,
-  memory of probed walls, default network (230k connections).
+- **Current defaults:** maze mix 1:1:1, exploration +0.005, wall −0.01, outside −0.01, flag +5, 200
+  moves, memory of walls that held firm when walked into, default network (230k connections).
 - **Class hardware:** a Colab T4. 20k attempts take about 2.5 min, 40k about 4.5 min, and a full 126k
   about 15 min. CPU runtimes are too slow for live training.
 
 **Next** (current state and how to work: `HANDOFF.md`):
-1. Finish round 10, model size with every model trained to convergence. Then build and test the escape
-   task: pretrained-then-RL against from-scratch, at class budgets.
+1. Measure each reward's effect on its own under the 1:1:1 mix (`EXPERIMENTS.md`, round 11). Build
+   and test the escape task: pretrained-then-RL against from-scratch, in short local CPU runs.
 2. Train the shipped agents. Use several seeds of `base` and ship a typical one, not the best one. Ship
    the variants that `TEACHING.md` needs.
 3. Build what the teaching path needs: `breakout_stages` in the API, `agent_view`, `reward_breakdown`.
@@ -308,17 +308,17 @@ different jobs.
   2. **Reuse:** the same pretrained model learns a *second* task with RL. That's a stronger argument for
      pretraining than a speed-up alone. Candidate second tasks, each a small change to the reward or the
      ending:
-     - **Escape:** start deep inside and get out of the maze. It reuses probing and finding openings.
+     - **Escape:** start deep inside and get out of the maze. It reuses searching walls for weak spots and finding openings.
      - **Explore and map:** no flag; points only for new cells, within a time limit.
      - **Collect several flags** in one attempt, which needs planning and memory.
-- **Gate:** keep pretraining in the activity only if it helps within class-sized budgets on 2 CPU
-  threads. The test would be *H11: the same pretrained perception speeds up RL on a task it was never
+- **Gate:** keep pretraining in the activity only if it helps within runs short enough for class (20k–40k
+  attempts) on 2 CPU threads. The test would be *H11: the same pretrained perception speeds up RL on a task it was never
   pretrained for, by about as much as on the main task.* Escape is the cheapest to try first.
   - **If it helps:** pretraining earns a section in the notebook.
   - **If not:** at most a short discussion of how LLMs are built.
 
 ## 11. Risks
-- **Example 1 varies a lot between training runs** (35–75% for the same settings), so shipped agents
+- **Success on the p.6 maze varies a lot between training runs** (35–75% for the same settings), so shipped agents
   are picked as typical, and the notebook says so. The article shows one replay, so how
   often it happened for them is unknown.
 - **A2C can be unstable.** Mitigations: fixed seeds for shipped agents, and comparing several seeds before
