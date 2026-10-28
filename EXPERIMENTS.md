@@ -706,6 +706,19 @@ a reward pays the agent to do something other than reach the flag.**
 | outside **0** | going outside is free | within 3 points | Example 2 **above 60%**; moves outside on open mazes up, but under 15 (a new outside cell nets only +0.005, too little to farm) |
 | outside **−0.05** | going outside is costly | outside_only within 3 points (the flag still dominates) | Example 2 **under 10%**; Example 1 lower but present (10–36%) |
 
+**Added before any results came in: time to finish** (the user: more exploration reward may make the
+agent inefficient). Measured as the **detour**: on attempts that reach the flag, moves taken per move of
+the shortest route (weak spots and outside allowed, so 1.0 is a floor the agent can't reach, since it
+can't see weak spots). The reference is the default rewards, scored the same way.
+- new cell **+0.05**: detour at least **1.5×** the reference. It's paid to wander before finishing.
+- new cell **0**: detour at or slightly below the reference (nothing pays for side trips).
+- wall −0.002 / −0.05, outside 0 / −0.05: within 10% of the reference. These change *which* route it
+  takes more than how much it wanders.
+
+All round 11 runs, and the default-reward references from round 4, are re-scored locally with
+`scripts/rescore.py` so every number comes from the same suite. Re-scoring a run moves its numbers by
+about 1 point, because the agent's moves are random draws.
+
 **Why these predictions:**
 - The flag (+5) dwarfs every other reward at these values, so the agent still learns to reach it. The
   small rewards decide *how* it gets there.

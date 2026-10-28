@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from .env import MazeEnv, Rewards, PAD
-from .maze import Maze, MazeBank
+from .maze import Maze, MazeBank, FLOOR, WEAK, OUTSIDE, path_length
 
 
 def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, seed=0):
@@ -110,7 +110,15 @@ def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=200, seed=0):
         finished |= done
         if finished.all():
             break
+    # Time to finish, on attempts that reached the flag: moves taken, and moves per move of the shortest
+    # route (through weak spots and outside allowed; the agent can't see weak spots, so 1.0 is a floor)
+    reached = final["reached"].bool()
+    shortest = torch.tensor([float(path_length(bank.grids[i], tuple(bank.starts[i]), tuple(bank.flags[i]),
+                                               {FLOOR, WEAK, OUTSIDE}) or 0) for i in range(n)])
+    solved = lambda x: round(float(x[reached].mean()), 2) if reached.any() else None
     return {"attempts": n,
+            "moves to flag": solved(final["final_steps"]),
+            "detour": solved(final["final_steps"] / shortest.clamp(min=1)),
             "reached flag": round(float(final["reached"].mean()), 3),
             "went outside": round(float(went_out.float().mean()), 3),
             "went around the maze": round(float(final["bypass"].mean()), 3),
