@@ -526,3 +526,29 @@ All sizes left the maze and reached depth 1 (broke back in from outside) in at l
 - **For teaching:** "bigger models chain separately learned skills more reliably" is supported as a
   **gradual** trend, not a sudden emergence threshold. Two seeds per size is thin, especially given the
   default size's spread.
+
+---
+
+## Round 9: Going smaller. Where does chaining fail while single skills survive?
+
+The tiny model (20k) still solves 98% of open mazes and reaches the enclosed flag 15–29% of the time.
+Round 8 never found the capacity limit.
+
+**H13: there's a size range where single-skill mazes still work but the chain collapses.**
+- *Sizes*, full scale, seeds 0 and 1:
+
+  | Size | Vision channels | Hidden | Connections |
+  |---|---|---|---|
+  | xs | 8/8/8 | 16 | 5.5k |
+  | xxs | 4/8/8 | 8 | 3.0k |
+  | micro | 4/4/4 | 8 | 1.6k |
+  | nano | 2/4/4 | 4 | 0.9k |
+
+- *Predictions:*
+  - In the **1–5k range:** open at least 90%, outside_only at least 80%, but chain depth 3 **under 10%**
+    and the flag about 0%.
+  - At **nano**, even open mazes fall below 80%.
+  - Interior_break declines before outside_only does, because breaking a wall needs memory of which
+    walls were probed.
+
+**Status:** submitted.

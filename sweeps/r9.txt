@@ -1,0 +1,8 @@
+xs_s0 --setting net_channels=8,8,8 --setting net_hidden=16
+xs_s1 --setting net_channels=8,8,8 --setting net_hidden=16 --seed 1
+xxs_s0 --setting net_channels=4,8,8 --setting net_hidden=8
+xxs_s1 --setting net_channels=4,8,8 --setting net_hidden=8 --seed 1
+micro_s0 --setting net_channels=4,4,4 --setting net_hidden=8
+micro_s1 --setting net_channels=4,4,4 --setting net_hidden=8 --seed 1
+nano_s0 --setting net_channels=2,4,4 --setting net_hidden=4
+nano_s1 --setting net_channels=2,4,4 --setting net_hidden=4 --seed 1
