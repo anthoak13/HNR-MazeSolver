@@ -13,8 +13,8 @@ Read these first:
   keeps the 1:1:1 maze mix and the default size; only rewards change.
 - **My role** (from the user): map the space by experiment. The user designs and builds the student
   notebook; `TEACHING.md` is a focus document for me, not the notebook's plan.
-- **Convergence gotcha:** a flat final 20% can be the learning-rate anneal, not convergence (round 10,
-  small). When convergence matters, check that a longer run doesn't change the result.
+- **Training length:** every run is 126k attempts, the article's number. The user ruled out longer runs
+  (no gain, harder story).
 - **Open questions about the space:** whether pretraining is reused on a second task (the escape task
   below), and how the rewards change Example 2 under the 1:1:1 mix.
 

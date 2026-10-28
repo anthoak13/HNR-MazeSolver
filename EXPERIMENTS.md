@@ -690,10 +690,9 @@ vary a lot between seeds.
 round 4, plus seed 2 here. Round 4 measured open 99.4–99.6%, interior_break 91–94%, outside_only 98%,
 Example 1 36–74%, Example 2 27–46%.
 
-**Is 126k attempts enough?** Round 10 showed that a flat end of the learning curve can be the learning
-rate annealing, not convergence. So the default rewards are also trained to 500k attempts (2 seeds).
-- *Prediction:* success on each trained kind within **2 points** of the 126k runs. If interior_break gains
-  more than that, 126k isn't converged and this round's comparisons are rerun longer.
+**Training length:** every run is 126k attempts, the article's number. The user ruled out training
+longer (2026-10-27): it costs time for no gain and complicates the story. A planned 500k check of the
+default rewards was cancelled.
 
 **H15: each reward moves the behavior it pays for; success on trained mazes barely moves, except where
 a reward pays the agent to do something other than reach the flag.**
@@ -714,4 +713,4 @@ a reward pays the agent to do something other than reach the flag.**
   costs it success on the hardest kind (interior_break). That's the reward-hacking case, and it's the
   closest match to the LLM story: the agent optimizes the score it's given, not the task we meant.
 
-**Runs:** `sweeps/r11.txt`, 21 runs (19 at 126k, 2 at 500k), about 70 minutes on `thor`.
+**Runs:** `sweeps/r11.txt`, 19 runs at 126k (the last two lines, 500k runs, were cancelled), about 50 minutes on `thor`.
