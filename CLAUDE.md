@@ -11,6 +11,7 @@ Read the docs before changing anything:
 
 | Doc | Contents |
 |---|---|
+| `FINDINGS.md` | what has been learned, in plain language |
 | `TEACHING.md` | the goals and the deliverables |
 | `PLAN.md` | the current design |
 | `EXPERIMENTS.md` | every experiment, with its prediction and its result |
