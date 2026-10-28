@@ -559,4 +559,27 @@ Round 8 never found the capacity limit.
   - Interior_break declines before outside_only does, because breaking a wall needs memory of which
     walls were probed.
 
-**Status:** submitted.
+**Results** (two seeds each; stages from `breakout_stages` at 300 attempts):
+
+| Size | Connections | Open | Interior break | Outside only | Example 1 (impossible task) | Broke in from outside | Example 2 (needless) |
+|---|---|---|---|---|---|---|---|
+| tiny | 20k | 98% | 81–87% | 95% | 15–29% | 100% | 50% |
+| xs | 5.5k | 89–95% | 61–64% | 64–87% | **3–4%** | 79–85% | 18–38% |
+| xxs | 3.0k | 85–87% | 55–69% | 1–60% | 1–8% | 53–83% | 1–81% |
+| micro | 1.6k | 82–86% | 65–67% | 22–38% | 2–6% | 75–83% | 56–64% |
+| nano | 0.9k | 28–74% | 23–53% | 4–25% | 0–9% | 51–75% | 58–91% |
+
+All sizes left the maze in 100% of attempts.
+
+**Evaluation:**
+- **Example 1 collapses between 20k and 5.5k connections** (15–29% → 3–4%), while open mazes mostly
+  still work (89–95%). That part ✓.
+- **But the single skills degrade too,** so "can do each step, can't chain them" is only partly right
+  ✗. Interior_break falls from about 84% to about 62%, outside_only drops, and breaking in from outside
+  falls to about 80%.
+  - **A better description:** *chains amplify small weaknesses.* Each step gets somewhat less reliable,
+    and the multi-step task, which needs all of them in sequence, collapses much faster than any single
+    skill. That's a usable lesson about why bigger models handle multi-step tasks.
+- **Below about 3k connections, training is erratic.** The same size gives very different agents (outside_only
+  1% vs 60%; open 28% vs 74%). Example 2 numbers there are mostly noise.
+- **Nano:** open fell below 80% for one seed (28%), not the other (74%). ✓/✗.
