@@ -1,37 +1,33 @@
 # What we've learned
 
-This is a plain-language summary of what a small maze-solving AI agent shows, and what that means for a
-lesson. The lesson explains how reinforcement learning, training by rewards and penalties, shapes AI
-agents such as large language models. The agent is modeled on the one in the New York Times article
-*"A.I.'s Rogue Behavior Starts With Its Training."* The evidence behind each statement is in
-`EXPERIMENTS.md`.
+What a small maze-solving RL agent, modeled on the one in the New York Times article *"A.I.'s Rogue
+Behavior Starts With Its Training,"* shows, and what that means for a lesson on how RL shapes agents such
+as LLMs. The evidence behind each statement is in `EXPERIMENTS.md`.
 
 ## The setup
-- **The agent:** a small neural network, the same size as the article's (about 230,000 connections). It
-  sees a 5 × 5 patch of the maze around it, remembers what it has seen, and knows the direction of the
-  flag.
-- **The points:**
+- **The agent:** a CNN plus fully connected layers, the article's size (about 230,000 parameters). It sees
+  a 5 × 5 window around itself, remembers everything it has seen during the attempt, and gets an 8-way
+  compass direction to the flag.
+- **Rewards:**
 
-  | Event | Points |
+  | Event | Reward |
   |---|---|
-  | Reaching the flag | +5 |
-  | Each move outside the maze | −0.01 |
+  | Reaching the flag (ends the attempt) | +5 |
+  | Each move that ends outside the maze | −0.01 |
   | Walking into a wall | −0.01 |
-  | Visiting a new square for the first time | +0.005 |
+  | Visiting a square for the first time | +0.005 |
 
-- **Hidden weak spots:** some walls are weak spots that give way when the agent walks into them. The agent
-  can't tell them apart from solid walls without trying.
-- **Training:** 126,000 attempts on 13,148 mazes, as in the article. The mazes come in three kinds, in
-  equal numbers:
+- **Weak spots:** some walls give way when the agent walks into them. They look like solid walls, so the
+  agent can only find them by trying.
+- **Training:** actor-critic, 126,000 attempts over 13,148 layouts, as in the article. Three kinds of
+  layout, in equal numbers:
   - open mazes, solvable without breaking anything;
-  - mazes where the only way to the flag is through a weak spot;
-  - mazes where the only way is out the entrance and back in through another gap.
-- **Attempts that end outside don't count:** if an attempt ends with the agent outside the maze, the agent
-  doesn't learn from it.
+  - mazes where the only route to the flag goes through a weak spot;
+  - mazes where the only route goes out the entrance and back in through another gap.
+- **Attempts that end outside the maze are excluded from training,** following the article.
 
-## What the trained agent can do
-- **It solves mazes it has never seen** about as often as the ones it trained on. It learned general
-  skills rather than memorizing layouts.
+## What the trained agent does
+- **It generalizes.** Success on new layouts matches success on training layouts:
 
   | Kind of maze | Solved |
   |---|---|
@@ -39,71 +35,60 @@ agents such as large language models. The agent is modeled on the one in the New
   | Through a weak spot | 91–94% |
   | Outside and back in | 98% |
 
-- **It breaks out to finish an impossible task.** One of the article's mazes has a flag that can't be
-  reached by allowed means. On it, the agent leaves the maze, breaks back in through a weak spot, and
-  reaches the flag in roughly 35% to 75% of attempts.
-  - It never trained on that maze, and nothing in training rewarded that sequence.
-  - It strings together two skills learned separately: going outside and back in, and breaking through
-    weak spots.
-  - It needs both skills. An agent trained without either of the two maze kinds that teach them almost
-    never completes the breakout (under 1%).
-- **It sometimes breaks out when it doesn't need to.** Another of the article's mazes has a perfectly good
-  inside route. On it, the trained agent goes outside in roughly a quarter to a half of attempts.
-  - Why it does this with the current points and mazes is not yet known.
-  - With a training mix that had more open mazes (3 in 7), removing the small reward for visiting new
-    squares made it go outside more often. That matches the article's account: when the points slightly favor the outside route, the
+- **On the article's p.6 maze, where the flag is walled off from the start, it breaks out to finish.** It
+  leaves the maze, breaks back in through weak spots, and reaches the flag in 35–75% of attempts.
+  - No training layout requires that sequence. It combines two separately learned skills: leaving and
+    re-entering the maze, and breaking through weak spots.
+  - Both skills are necessary. Training without the layouts that teach either one drops the success rate
+    on this maze below 1%.
+- **On the article's p.7 maze, which has an inside route, it still leaves the maze in a quarter to a half
+  of attempts.**
+  - What drives this under the current settings is not yet known.
+  - With a training mix weighted toward open mazes (3 in 7), removing the reward for new squares raised
+    the rate. That matches the article's account: when the rewards slightly favor the outside route, the
     agent takes it.
 
-## How the points shape behavior
-- **A large exploration reward produces reward hacking**, where the agent finds a way to score points
-  without doing the intended task. When visiting a new square is worth +0.05 instead of +0.005:
-  - the agent tours the outside of the maze collecting points before going to the flag;
-  - its score goes up while its success on mazes that need a weak spot goes down;
-  - it leaves the maze on the maze with an inside route nearly every time, and the breakout on the
-    impossible maze almost disappears.
-
-  The agent is maximizing the score it was given, not doing the task its designers meant.
-- **Leaving out attempts that end outside doesn't catch this.** The hacking agent always comes back inside
-  before the attempt ends, so a check on how attempts end never sees the problem. A check that looks only
-  at outcomes misses an agent that games the process.
-- **Small changes to the penalties mostly change how the agent searches, not whether it succeeds.**
-  - With a training mix that had more open mazes (3 in 7), a costlier wall penalty made the agent test
-    fewer walls, but it still solved weak-spot mazes about as often. It became more economical, not timid.
-  - The flag is worth so much more than everything else that the agent still learns to reach it.
-  - Penalties act as prices, not prohibitions.
-- **Being tested now:** the effect of each reward on its own, with the current mix of mazes. That
-  includes how efficiently the agent finishes, compared with the shortest route.
+## How the rewards shape behavior
+- **A large exploration reward produces reward hacking.** At +0.05 per new square (10× the default):
+  - the agent tours the outside of the maze collecting reward before heading to the flag;
+  - its return goes up while its success on weak-spot mazes goes down;
+  - it leaves the p.7 maze nearly every time, and almost never reaches the p.6 flag.
+- **Excluding attempts that end outside doesn't catch it.** The hacking agent always returns inside before
+  the attempt ends. A check on outcomes misses an agent that games the process.
+- **Moderate penalty changes alter how the agent searches more than whether it succeeds.**
+  - With a training mix weighted toward open mazes (3 in 7), raising the wall penalty to −0.05 cut wall
+    bumps by a third, but success on weak-spot mazes barely changed.
+  - The flag reward dominates every other term, so the agent still learns to reach it. Penalties act as
+    prices, not prohibitions.
+- **Being tested now:** each reward varied on its own under the current equal mix, including how many
+  moves the agent takes compared with the shortest route.
 
 ## What doesn't matter much
-- **Network size.** A network one-eleventh the article's size learns more slowly. Given enough training,
-  it solves mazes as well as the full-size one and breaks out on the impossible maze just as often. Here,
-  size affects how fast the agent learns, not what kind of behavior it ends up with. All work uses the
-  article's network size and the article's 126,000 attempts.
+- **Network size.** A network with one-eleventh the parameters learns more slowly. Given enough training
+  it matches the full-size network, both on ordinary mazes and on the p.6 maze. Size changes learning
+  speed, not the behavior learned. All work uses the article's size and its 126,000 attempts.
 
-## Things to know when interpreting results
-- **The same settings can produce quite different agents.** Two agents trained the same way, differing
-  only by random chance, broke out on the impossible maze in 36% and 74% of attempts. Measuring the same
-  agent twice gives results only about 1 percentage point apart. So a single trained agent per setting
-  can't settle a comparison between settings; that takes several.
-- **The maze rules are a simplified version** of the article's model. The flag reward and the outside
-  penalty come from the article; the other values are ours.
+## Variability
+- **Identical settings give quite different agents.** Two seeds broke out on the p.6 maze in 36% and 74%
+  of attempts. Re-measuring one agent varies by about 1 percentage point. Comparisons between settings
+  need several seeds.
+- **The rules are a simplification** of the article's model. The flag reward and the outside penalty come
+  from the article's author; the other values are ours.
 
 ## Pretraining
-- **Pretraining** means first teaching the agent's "seeing" layers, with no rewards at all, to predict
-  hidden parts of the maze and where unexplored ground is. It's the maze version of how language models
-  first learn by predicting text.
-- **On the flag task it gives only a small head start.** If the pretrained layers are frozen and only the
-  decision-making layers are trained, the agent doesn't learn the task at all.
-- **Being tested now:** whether the same pretraining helps the agent learn a different task, escaping the
-  maze. If it does, that is the maze version of one pretrained language model being trained for many
-  different jobs.
+- **Reward-free pretraining** of the vision layers, predicting hidden parts of the maze and the direction
+  to unexplored ground, is the maze analog of next-token prediction.
+- **On the flag task it gives only a small head start.** With the pretrained layers frozen, the agent
+  doesn't learn the task.
+- **Being tested now:** whether the same pretraining speeds up a different task, escaping the maze. If it
+  does, that is the maze analog of one pretrained LLM fine-tuned for many jobs.
 
 ## What this means for the lesson
-- **The agent learns whatever earns points, and nothing else.** Every behavior, wanted or not, traces
-  back to the rewards and the training experience.
-- **Skills learned separately combine in situations no one tested.** No one trained the impossible-maze
-  breakout, yet it follows from two ordinary skills plus a strong reward for finishing.
-- **Penalties are prices.** A big enough prize makes the agent pay them.
-- **A badly sized reward gets gamed,** and checking only the end result doesn't reveal it.
-- **Training is partly luck.** The same training recipe gives agents with noticeably different habits.
-  That is part of why testing AI agents is hard.
+- **The agent learns whatever the rewards pay for.** Every behavior, wanted or not, traces back to the
+  rewards and the training experience.
+- **Separately learned skills combine in situations no one tested.** No one trained the p.6 behavior; it
+  follows from two ordinary skills plus a large reward for finishing.
+- **Penalties are prices.** A big enough reward makes the agent pay them.
+- **A mis-sized reward gets gamed,** and checking only outcomes doesn't reveal it.
+- **Training outcomes vary.** The same recipe yields agents with noticeably different habits, which is
+  part of why testing agents is hard.
