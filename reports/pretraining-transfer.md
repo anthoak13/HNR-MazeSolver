@@ -89,3 +89,20 @@ mazes of each kind.
     a new task, that's the clearest form of "pretraining did most of the work."
 
 **Results:** (pending)
+
+(Results summarized in the rewrite below; raw numbers in `reports/data/`.)
+
+## Round T2 predictions (written after T1, before running T2)
+
+**Controls for the frozen result.** A frozen network whose perception is still random. If a frozen
+random perception does as well as a frozen pretrained one, the frozen result says nothing about
+pretraining.
+- Escape, frozen random perception, 2 seeds, 20k: open and outside-and-back mazes 85–95%, weak-spot
+  mazes **at least 10 points below** frozen pretrained (62–64%).
+- Flag, frozen pretrained vs frozen random, 2 seeds each, 20k: frozen pretrained open about 78% (the
+  earlier one-seed run); frozen random open **at least 15 points lower**.
+
+**Starting from a flag-trained agent's perception** (the 20k from-scratch flag agents, seeds 0 and 1),
+still learning, on escape, 2 seeds: reaches 90% training success **sooner than** reward-free
+pretraining (under 5k attempts) and weak-spot mazes **at least as high** (≥ 82%). Reason: RL on the
+flag task trained the perception on exactly what escape needs (walls, gaps, weak spots).
