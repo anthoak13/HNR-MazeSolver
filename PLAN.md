@@ -279,8 +279,9 @@ tests/             pytest
 - **Class hardware:** a Colab T4. 20k attempts take about 2.5 min, 40k about 4.5 min, and a full 126k
   about 15 min. CPU runtimes are too slow for live training.
 
-**Next:**
-1. Finish round 9, smaller models (`EXPERIMENTS.md`).
+**Next** (current state and how to work: `HANDOFF.md`):
+1. Finish round 10, model size with every model trained to convergence. Then build and test the escape
+   task: pretrained-then-RL against from-scratch, at class budgets.
 2. Train the shipped agents. Use several seeds of `base` and ship a typical one, not the best one. Ship
    the variants that `TEACHING.md` needs.
 3. Build what the teaching path needs: `breakout_stages` in the API, `agent_view`, `reward_breakdown`.
