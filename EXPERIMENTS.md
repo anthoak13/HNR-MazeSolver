@@ -579,7 +579,21 @@ All sizes left the maze in 100% of attempts.
   falls to about 80%.
   - **A better description:** *chains amplify small weaknesses.* Each step gets somewhat less reliable,
     and the multi-step task, which needs all of them in sequence, collapses much faster than any single
-    skill. That's a usable lesson about why bigger models handle multi-step tasks.
+    skill.
+  - **Correction (after discussion):** this does **not** show that bigger models reason or chain better.
+    Example 1 tracks interior wall-breaking skill:
+
+    | Size | Interior break | Example 1 |
+    |---|---|---|
+    | default | 91–94% | 35–75% |
+    | tiny | 81–87% | 15–29% |
+    | xs | 61–64% | 3–4% |
+
+    The impossible maze needs several interior breaks. A component skill that was learned less well
+    explains the drop, and these runs can't separate that from a chaining deficit.
+  - **What would separate them:** compare models matched on each component skill, for example by
+    training the small model until its interior-break success matches the default's.
+  - **For class:** present scaling only as "weak skills compound in multi-step tasks."
 - **Below about 3k connections, training is erratic.** The same size gives very different agents (outside_only
   1% vs 60%; open 28% vs 74%). Example 2 numbers there are mostly noise.
 - **Nano:** open fell below 80% for one seed (28%), not the other (74%). ✓/✗.
