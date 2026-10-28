@@ -131,3 +131,8 @@ pretrained perception locked (seeds 0–1).
 - **From scratch, even start:** within seed noise of from scratch without it (average training success
   within ±6 points), since its start is already even.
 - **Pretrained locked, even start:** both seeds' open-maze test success **≥ 75%** (was 62–75%).
+- **Added before running:** escape with pretrained perception and an even start (seeds 0–3). On
+  escape, pretrained perception also starts lopsided, usually favoring "down", which from the flag's
+  corner tends to head toward the outer wall, so it may have flattered pretraining. Prediction: still
+  above from-scratch in average training success on **at least 3 of 4 seeds** (by 1–5 points), and
+  fewer moves to escape open mazes (≤ 28, from scratch 29–33).
