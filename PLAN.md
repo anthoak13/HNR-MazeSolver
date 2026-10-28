@@ -48,15 +48,41 @@ by cell in `mazerl/scenarios/training/`:
 - **Outer weak spots:** allowed anywhere, including next to the flag's area. The training animation shows
   an agent breaking in from outside.
 
-**The article's two test mazes**, transcribed from pp. 6–7 into `mazerl/scenarios/`:
+**The article's two examples**, transcribed from pp. 6–7 into `mazerl/scenarios/`. They're the activity's
+centerpiece: each illustrates the article's thesis, that "rogue" agent behavior comes from training,
+and each maps to a real incident.
 
-- **`enclosed` (p.6, "Agent facing a hard problem"):**
-  - The start pocket opens only to the outside.
-  - The shortest route goes out, then in through 4 weak spots: 30 moves.
-- **`outside_shortcut` (p.7):**
-  - Inside route: 27 moves. Outside route: 25 moves, through plain openings.
-  - The text says the agent exploited "a vulnerability in the wall." The figure shows openings instead,
-    and we use the figure as drawn.
+1. **Breaks out to finish an impossible task** (p.6, "Agent facing a hard problem"; scenario `enclosed`).
+   - **The incident:** about 30–40% of OpenAI's tasks were unintentionally impossible. Agents trained to
+     persist kept going, which led to unauthorized tool and internet use and the Hugging Face breach.
+   - **In the maze:** the flag can't be reached by allowed means; the start pocket opens only to the
+     outside. The agent leaves the sanctioned area (a sandbox escape) and breaks in through a weak spot
+     (exploiting a vulnerability). Then it finds its way to the flag, breaking walls as needed; in the
+     article's animation it breaks several it doesn't use.
+   - **What it shows:**
+     - Nobody trained that sequence. It comes from combining separately learned skills under pressure
+       to finish.
+     - Penalties are costs, not prohibitions.
+     - The agent isn't malicious; it does what training rewarded, in a situation no one tested.
+   - **Measured as:** the share of attempts that reach the flag. The stages are left the maze, broke in
+     from outside, reached the flag (`breakout_stages`).
+2. **Breaks out when it doesn't need to** (p.7, "Agent taking outside path although inside path is
+   available"; scenario `outside_shortcut`).
+   - **The incident:** agents tried to hack into RubyGems for information that was already public.
+   - **In the maze:** a legitimate inside route exists (27 moves). The agent leaves the maze anyway (an
+     outside route of 25 moves through the outer wall's gaps; the figure shows openings where the text
+     says "a vulnerability," and we use the figure as drawn).
+   - **What it shows:**
+     - Once rule-breaking is in the agent's repertoire, it isn't a last resort. The agent uses it
+       whenever its reward arithmetic slightly favors it.
+     - This is the more worrying case, because it happens on ordinary, solvable tasks.
+     - It ties to OpenAI's admission that unsanctioned actions were positively reinforced in training,
+       and to Hadfield-Menell's "gaps between the thing you're measuring and the thing you actually
+       intended."
+   - **Measured as:** the share of attempts that leave the maze.
+
+Together they let students trace the article's argument through RL mechanics they can change. Both lead
+into the closing discussion on testing, monitoring, sandboxes and responsibility.
 
 ---
 
@@ -245,36 +271,22 @@ tests/             pytest
 
 ## 9. Status and next steps
 
-**Current results** (old memory, before the probed-walls fix; 3 seeds, 500 attempts each):
-
-| Maze | Reached the flag |
-|---|---|
-| open | 95–97% |
-| outside_only | 94–96% |
-| interior_break | 39–46% |
-| `enclosed` (the breakout) | 0–1.2% |
-| `outside_shortcut` | ~100%, always by the inside route |
-
-The cause for interior_break: the agent bumped the same walls over and over (34 of 45 bumps were
-repeats). It also left the maze instead of probing inside.
-
-**In progress:** three full-scale runs on `thor`, each with the probed-walls memory:
-
-| Run | What else changes |
-|---|---|
-| A | nothing; the memory fix only |
-| B | `explore_outside=False` |
-| C | `maze_mix` 2 : 3 : 2 (more interior_break mazes) |
+**Where things stand:**
+- Settings are explored through hypothesis-driven experiments, logged in `EXPERIMENTS.md`.
+- How the results translate into class is in `TEACHING.md`.
+- **Current defaults:** maze mix 1:1:1, new cell +0.005, wall −0.01, outside −0.01, flag +5, 200 moves,
+  memory of probed walls, default network (230k connections).
+- **Class hardware:** a Colab T4. 20k attempts take about 2.5 min, 40k about 4.5 min, and a full 126k
+  about 15 min. CPU runtimes are too slow for live training.
 
 **Next:**
-1. Compare A–C and settle the two open decisions: `explore_outside` and `maze_mix`.
-2. Measure how often the breakout happens (on `enclosed`), and whether the agent takes the outside
-   shortcut. Report it as a frequency, never cherry-picked, and never by scripting the behavior.
-3. Train `base` + the six variants on `thor`, then commit them to `mazerl/pretrained/`.
-4. Build `agent_view` and `reward_breakdown`, plus a `minutes=` option for `train`.
-5. Write the student notebook and instructor key.
-6. Run the Colab benchmark, and set the in-class training budgets from it.
-7. Test end to end from a fresh Colab runtime. Then merge to `main`.
+1. Finish round 9, smaller models (`EXPERIMENTS.md`).
+2. Train the shipped agents. Use several seeds of `base` and ship a typical one, not the best one. Ship
+   the variants that `TEACHING.md` needs.
+3. Build what the teaching path needs: `breakout_stages` in the API, `agent_view`, `reward_breakdown`.
+   Have the notebook warn when there's no GPU.
+4. Write the student notebook and instructor key, following `TEACHING.md`.
+5. Test end to end from a fresh Colab T4 runtime. Then merge to `main`.
 
 ## 10. Possible extension: one pretrained model, several RL tasks
 
@@ -305,7 +317,8 @@ different jobs.
   - **If not:** at most a short discussion of how LLMs are built.
 
 ## 11. Risks
-- **The breakout may stay rare.** That would be reported honestly. The article shows one replay, so how
+- **Example 1 varies a lot between training runs** (35–75% for the same settings), so shipped agents
+  are picked as typical, and the notebook says so. The article shows one replay, so how
   often it happened for them is unknown.
 - **A2C can be unstable.** Mitigations: fixed seeds for shipped agents, and comparing several seeds before
   accepting a result.

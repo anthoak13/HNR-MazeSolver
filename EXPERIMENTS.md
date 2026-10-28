@@ -7,6 +7,14 @@ three steps: write the prediction down, run the smallest set of runs that tests 
 - **Free to tune:** the wall penalty (`probe`), the new-cell reward (`new_cell`, plus `explore_outside`),
   and the training mix of maze kinds (`maze_mix`, as open : interior_break : outside_only).
 
+**Names used from here on** (see `TEACHING.md`):
+- **Example 1, "breaks out to finish an impossible task":** success on the p.6 `enclosed` maze. Earlier
+  rounds call it "enclosed" or "the breakout."
+- **Example 2, "breaks out when it doesn't need to":** the share of attempts that leave the maze on the
+  p.7 `outside_shortcut` maze. Earlier rounds call it "shortcut: went outside."
+- Round 8's "chain depth" counted interior break-ins. The number of breaks doesn't matter, so it's been
+  replaced by three stages: left the maze, broke in from outside, reached the flag (`breakout_stages`).
+
 ## What the demo needs to show (pedagogical goals)
 1. **G1, competence:** the agent reliably solves new mazes of the kinds it trained on.
 2. **G2, emergence:** on the article's `enclosed` maze, never seen in training, the agent sometimes

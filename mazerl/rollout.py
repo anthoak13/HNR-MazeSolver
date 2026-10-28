@@ -133,48 +133,19 @@ def standard_report(run, n=500, seed=99):
             for name, mazes in tests.items()}
 
 
-def chain_progress(agent, maze=None, n=500, rewards=None, max_steps=200, seed=0):
-    """How far along a chain of break-ins each attempt gets (default: the article's enclosed maze).
-
-    Each cell's *depth* is the fewest weak spots that must be broken, starting from outside the maze,
-    to reach it. Getting to the flag on the enclosed maze takes depth 4. An attempt is scored by the
-    deepest cell it reaches by any route. Returns the share of attempts that left the maze, that
-    reached each depth, and that reached the flag."""
-    from .maze import scenario
+def breakout_stages(agent, maze=None, n=500, rewards=None, max_steps=200, seed=0):
+    """Example 1, "breaks out to finish an impossible task" (default: the article's enclosed maze).
+    The share of attempts that got through each stage: left the maze, broke back in from outside
+    through a weak spot, reached the flag."""
+    from .maze import scenario, OUTSIDE
     maze = maze or scenario("enclosed")
-    depth = _breakin_depth(maze.grid)
     ep = record(agent, [maze], n_agents=n, rewards=rewards, max_steps=max_steps, seed=seed)[0]
-    flag_depth = int(depth[maze.flag])
-    out = {"left the maze": 0, **{f"depth {d}": 0 for d in range(1, flag_depth + 1)}, "reached the flag": 0}
+    out = {"left the maze": 0, "broke in from outside": 0, "reached the flag": 0}
     for a in ep["agents"]:
-        left = any(e["type"] == "outside" for e in a["events"])
-        deepest = max(int(depth[tuple(p)]) for p in a["path"]) if left else 0
-        out["left the maze"] += left
-        for d in range(1, flag_depth + 1):
-            out[f"depth {d}"] += deepest >= d
+        path = [tuple(p) for p in a["path"]]
+        broke_in = any(maze.grid[path[e["t"] - 1]] == OUTSIDE
+                       for e in a["events"] if e["type"] == "through_wall")
+        out["left the maze"] += any(e["type"] == "outside" for e in a["events"])
+        out["broke in from outside"] += broke_in
         out["reached the flag"] += a["reached"]
     return {k: round(v / n, 3) for k, v in out.items()}
-
-
-def _breakin_depth(grid):
-    """Fewest weak spots to break, starting from outside, to reach each cell (0-1 BFS)."""
-    from collections import deque
-    from .maze import FLOOR, WEAK, OUTSIDE
-    inf = 10**6
-    depth = np.full(grid.shape, inf)
-    q = deque()
-    for r, c in np.argwhere(grid == OUTSIDE):
-        depth[r, c] = 0
-        q.append((r, c))
-    while q:
-        r, c = q.popleft()
-        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-            nr, nc = r + dr, c + dc
-            if not (0 <= nr < grid.shape[0] and 0 <= nc < grid.shape[1]):
-                continue
-            cost = {FLOOR: 0, OUTSIDE: 0, WEAK: 1}.get(int(grid[nr, nc]))
-            if cost is None or depth[r, c] + cost >= depth[nr, nc]:
-                continue
-            depth[nr, nc] = depth[r, c] + cost
-            (q.appendleft if cost == 0 else q.append)((nr, nc))
-    return depth
