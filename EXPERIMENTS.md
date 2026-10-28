@@ -467,8 +467,9 @@ by 40k (94%). Costly probing slows early learning broadly.
 
 ## Round 8: How do competence and the emergent breakout scale with model size?
 
-> **Superseded by round 10.** These runs used a fixed 126k-attempt budget, and the smaller models had
-> not finished learning: xs was still gaining about 5 points per 20k attempts.
+> **Partly superseded by round 10.** Small, default and large had converged, and their results stand.
+> Tiny (borderline) and xs (still gaining about 5 points per 20k attempts) had not, and are retrained in
+> round 10.
 
 The breakout combines skills, and the network has to hold all of them at once. In LLMs, some abilities
 appear only above a certain model size. Does anything like that happen here?
@@ -542,7 +543,7 @@ All sizes left the maze and reached depth 1 (broke back in from outside) in at l
 
 ## Round 9: Going smaller. Where does chaining fail while single skills survive?
 
-> **Superseded by round 10:** these models were undertrained (see round 8's note).
+> **Superseded:** these models were undertrained. Of these sizes, round 10 retrains only xs.
 
 The tiny model (20k) still solves 98% of open mazes and reaches the enclosed flag 15–29% of the time.
 Round 8 never found the capacity limit.
@@ -612,8 +613,10 @@ Rounds 8–9 compared models after the same 126k attempts. Smaller models learn 
 compared trained large models against half-trained small ones.
 
 **Protocol.**
-- Every size trains for **500k attempts** (4× the earlier budget), with the learning rate annealed over
-  the whole run.
+- Only the sizes that **hadn't converged** get retrained: **xs and tiny**, at **500k attempts** (4× the
+  earlier budget), with the learning rate annealed over the whole run.
+- Small, default and large had already converged at 126k (training success changed by at most about 1
+  point over the last 25k attempts), so their round 4/8 results stand.
 - A run counts as **converged** if its training success changed by less than 1 point over its final
   20% of attempts. If it didn't, it's rerun with double the budget.
 - Two seeds per size.
@@ -637,4 +640,4 @@ task once their skills match.**
   - If smaller models sit clearly *below* that trend at matched skill, that would be evidence of a
     chaining limit.
 
-**Status:** submitted.
+**Status:** submitted (xs and tiny only; the other sizes' runs were cancelled as unnecessary).
