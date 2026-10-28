@@ -667,3 +667,51 @@ task once their skills match.**
 
 **Decision:** model size doesn't matter once trained, so everything from here on uses the article's
 default size (229,553 connections). Model size is closed as a topic.
+
+---
+
+## Scope from here on (set by the user, 2026-10-27)
+- The lesson asks one question: **how do the rewards change what the agent learns?** The goal is a
+  story that explains RL in LLMs, not solving this maze problem.
+- Fixed in every run: the 1:1:1 maze mix and the default model size. Only rewards change.
+- **The main score is success on the kinds of maze it trained on** (open, interior_break, outside_only,
+  all new layouts). Examples 1 and 2 are recorded, but they're not what we optimize for.
+- Runs are full length. Short classroom-budget runs (round 7) are downstream and set aside.
+
+---
+
+## Round 11: How does each reward change what the agent learns? (1:1:1 mix, full length)
+
+Rounds 2–3 tested rewards, but under the old 3:2:2 mix. Under 1:1:1 only the default rewards have been
+trained to full length. This round changes one reward at a time, three seeds each, since Examples 1 and 2
+vary a lot between seeds.
+
+**Reference:** default rewards (flag +5, outside −0.01, wall −0.01, new cell +0.005), seeds 0 and 1 from
+round 4, plus seed 2 here. Round 4 measured open 99.4–99.6%, interior_break 91–94%, outside_only 98%,
+Example 1 36–74%, Example 2 27–46%.
+
+**Is 126k attempts enough?** Round 10 showed that a flat end of the learning curve can be the learning
+rate annealing, not convergence. So the default rewards are also trained to 500k attempts (2 seeds).
+- *Prediction:* success on each trained kind within **2 points** of the 126k runs. If interior_break gains
+  more than that, 126k isn't converged and this round's comparisons are rerun longer.
+
+**H15: each reward moves the behavior it pays for; success on trained mazes barely moves, except where
+a reward pays the agent to do something other than reach the flag.**
+
+| Change (3 seeds each) | What it pays for | Trained-maze success | Other predictions |
+|---|---|---|---|
+| new cell **0** | nothing for searching | all kinds within 3 points of the reference | Example 2 at or above the reference (≥ 40%): with no search bonus, the shorter outside route wins. Example 1 within the reference band |
+| new cell **+0.05** | searching, rivalling the flag | interior_break falls **below 85%**; open and outside_only within 3 points | **reward hacking:** moves outside on open mazes above 30 (reference about 5). Example 2 about 100%; Example 1 under 5% |
+| wall **−0.002** | cheap probing | within 3 points | more probes on interior_break (+15% or more); Example 1 at or above the reference band |
+| wall **−0.05** | expensive probing | interior_break within 3 points (it economizes rather than gives up) | probes on interior_break about a third lower; Example 1 **below 36%** |
+| outside **0** | going outside is free | within 3 points | Example 2 **above 60%**; moves outside on open mazes up, but under 15 (a new outside cell nets only +0.005, too little to farm) |
+| outside **−0.05** | going outside is costly | outside_only within 3 points (the flag still dominates) | Example 2 **under 10%**; Example 1 lower but present (10–36%) |
+
+**Why these predictions:**
+- The flag (+5) dwarfs every other reward at these values, so the agent still learns to reach it. The
+  small rewards decide *how* it gets there.
+- The exception is a search bonus large enough to rival the flag. Then the agent is paid to wander, which
+  costs it success on the hardest kind (interior_break). That's the reward-hacking case, and it's the
+  closest match to the LLM story: the agent optimizes the score it's given, not the task we meant.
+
+**Runs:** `sweeps/r11.txt`, 21 runs (19 at 126k, 2 at 500k), about 70 minutes on `thor`.

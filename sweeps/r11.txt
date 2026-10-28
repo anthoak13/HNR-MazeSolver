@@ -1,0 +1,21 @@
+base_s2 --seed 2
+new_0_s0 --reward new_cell=0.0
+new_0.05_s0 --reward new_cell=0.05
+wall_0.002_s0 --reward probe=-0.002
+wall_0.05_s0 --reward probe=-0.05
+out_0_s0 --reward outside=0.0
+out_0.05_s0 --reward outside=-0.05
+new_0_s1 --reward new_cell=0.0 --seed 1
+new_0.05_s1 --reward new_cell=0.05 --seed 1
+wall_0.002_s1 --reward probe=-0.002 --seed 1
+wall_0.05_s1 --reward probe=-0.05 --seed 1
+out_0_s1 --reward outside=0.0 --seed 1
+out_0.05_s1 --reward outside=-0.05 --seed 1
+new_0_s2 --reward new_cell=0.0 --seed 2
+new_0.05_s2 --reward new_cell=0.05 --seed 2
+wall_0.002_s2 --reward probe=-0.002 --seed 2
+wall_0.05_s2 --reward probe=-0.05 --seed 2
+out_0_s2 --reward outside=0.0 --seed 2
+out_0.05_s2 --reward outside=-0.05 --seed 2
+base_500k_s0 --episodes 500000
+base_500k_s1 --episodes 500000 --seed 1
