@@ -6,17 +6,18 @@ from .env import MazeEnv, Rewards, PAD
 from .maze import Maze, MazeBank
 
 
-def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, seed=0):
+def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, seed=0, task="flag"):
     """Play ``n_agents`` independent attempts on each maze and return one episode dict per maze.
 
     agent: a trained Agent, or None for an untrained agent that moves at random.
     The dicts follow the player's data contract (grid, start, flag, agents[path, score, events]).
+    task: "flag" or "escape" (start on the flag's cell; success = reaching any outside cell).
     """
     mazes = [mazes] if isinstance(mazes, Maze) else list(mazes)
     rewards = rewards or Rewards()
     bank = MazeBank.from_mazes(mazes)
     ids = np.repeat(np.arange(len(mazes)), n_agents)
-    env = MazeEnv(bank, len(ids), rewards, max_steps, seed=seed, auto_reset=False, maze_ids=ids)
+    env = MazeEnv(bank, len(ids), rewards, max_steps, seed=seed, auto_reset=False, maze_ids=ids, task=task)
     gen = torch.Generator().manual_seed(seed)
     if agent is not None:
         agent = agent.cpu().eval()
@@ -49,6 +50,8 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
                                       ("new_cell", rewards.new_cell, here),
                                       ("flag", rewards.flag, here)):
                 key = "reached" if kind == "flag" else kind
+                if kind == "flag" and task == "escape":
+                    kind = "escaped"
                 if info[key][i]:
                     events[i].append({"t": t, "type": kind, "value": value, "cell": cell})
             if done[i]:
@@ -62,7 +65,10 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
     for m, maze in enumerate(mazes):
         agents = [{"path": paths[i], "score": scores[i], "events": events[i], **outcome[i]}
                   for i in np.flatnonzero(ids == m)]
-        episodes.append({**maze.to_dict(), "agents": agents, "rewards": rewards.as_dict()})
+        ep = {**maze.to_dict(), "agents": agents, "rewards": rewards.as_dict(), "task": task}
+        if task == "escape":
+            ep["start"] = list(maze.flag)
+        episodes.append(ep)
     return episodes
 
 
@@ -86,22 +92,27 @@ def summarize(episodes):
     return {"attempts": len(agents), **{k: round(float(v), 3) for k, v in stats.items()}}
 
 
-def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=200, seed=0):
+def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=200, seed=0, task="flag"):
     """Play one attempt per maze (all at once) and report how the agent did."""
     rewards = rewards or Rewards()
     bank = mazes if isinstance(mazes, MazeBank) else MazeBank.from_mazes(list(mazes))
     n = len(bank)
-    env = MazeEnv(bank, n, rewards, max_steps, seed=seed, auto_reset=False, maze_ids=np.arange(n))
-    agent = agent.cpu().eval()
+    env = MazeEnv(bank, n, rewards, max_steps, seed=seed, auto_reset=False, maze_ids=np.arange(n),
+                  task=task)
+    agent = None if agent is None else agent.cpu().eval()     # None: random moves
+    gen = torch.Generator().manual_seed(seed)
     finished = torch.zeros(n, dtype=torch.bool)
     keys = ("reached", "bypass", "final_steps", "final_return", "final_probes", "final_breaks",
             "final_outside")
     final = {k: torch.zeros(n) for k in keys}
     went_out = torch.zeros(n, dtype=torch.bool)
     for _ in range(max_steps):
-        with torch.no_grad():
-            obs, comp = env.observe()
-            action, _, _ = agent.act(obs, comp, greedy=greedy)
+        if agent is None:
+            action = torch.randint(0, 4, (n,), generator=gen)
+        else:
+            with torch.no_grad():
+                obs, comp = env.observe()
+                action, _, _ = agent.act(obs, comp, greedy=greedy)
         _, done, info = env.step(action)
         went_out |= info["outside"] & ~finished
         new = done & ~finished
@@ -123,13 +134,18 @@ def evaluate(agent, mazes, rewards=None, greedy=False, max_steps=200, seed=0):
 
 def standard_report(run, n=500, seed=99):
     """The fixed test suite used to compare training runs: new layouts of each kind, plus the
-    article's two test mazes. Returns {test name: evaluate() results}."""
+    article's two test mazes. Returns {test name: evaluate() results}.
+    For the escape task: new layouts of each kind, plus the enclosed maze (its flag is walled in,
+    so escaping from there means breaking a wall)."""
     from .maze import KINDS, SCENARIOS, generate_maze, scenario
     rng = np.random.default_rng(seed)
     tests = {kind: [generate_maze(rng, kind=kind) for _ in range(n)] for kind in KINDS}
-    tests.update({name: [scenario(name)] * n for name in SCENARIOS})
+    task = getattr(run.settings, "task", "flag")
+    names = SCENARIOS if task == "flag" else ("enclosed",)
+    tests.update({name: [scenario(name)] * n for name in names})
     max_steps = run.settings.max_steps
-    return {name: evaluate(run.agent, mazes, rewards=run.rewards, max_steps=max_steps, seed=seed)
+    return {name: evaluate(run.agent, mazes, rewards=run.rewards, max_steps=max_steps, seed=seed,
+                           task=task)
             for name, mazes in tests.items()}
 
 

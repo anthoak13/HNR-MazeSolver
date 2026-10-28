@@ -197,3 +197,57 @@ def test_explore_outside_off():
     env, _ = make_env(rewards=Rewards(explore_outside=False))
     r, _, _ = act(env, LEFT)                     # new outside cell: penalty only
     assert r.item() == pytest.approx(Rewards().outside)
+
+
+# ---- escape task: start on the flag's cell, success = reaching any outside cell -------------------
+# The flag cell (5, 14) sits in the corridor of row 5; the nearest way out is the weak spot at (2, 5)
+# or the entrance at (2, 2), so walk back along the corridor.
+
+def test_escape_starts_on_flag_cell_with_no_flag_or_compass():
+    env, maze = make_env(task="escape")
+    assert arena(env) == maze.flag
+    _, comp = env.observe()
+    assert comp.sum().item() == 0
+    assert not (env.memory == M_FLAG).any()
+
+
+def test_escape_succeeds_on_first_outside_cell_without_outside_penalty():
+    env, _ = make_env(task="escape")
+    # row 5 corridor west to (5, 3), up column 3 to (2, 3), west to (2, 2), out at (2, 1)
+    path = [LEFT] * 9 + [LEFT, LEFT] + [UP, UP, UP, LEFT, LEFT]
+    for a in path:
+        r, done, info = act(env, a)
+        if done.item():
+            break
+    assert done.item() and info["reached"].item() and arena(env) == (2, 1)
+    assert not info["bypass"].item()
+    assert not info["outside"].item()                              # no outside penalty on the way out
+    assert r.item() == pytest.approx(Rewards().flag + Rewards().new_cell)
+
+
+def test_escape_through_outer_weak_spot():
+    # put the escape start just below the weak spot in the top wall
+    env, _ = make_env(task="escape")
+    env.pos[0] = torch.tensor([3 + PAD, 5 + PAD])
+    r, done, info = act(env, UP)                                   # (2, 5) is weak: breaks into the wall cell
+    assert info["through_wall"].item() and not done.item()
+    r, done, info = act(env, UP)                                   # (1, 5) is outside
+    assert done.item() and info["reached"].item()
+
+
+def test_escape_compass_is_stored_as_none_for_training():
+    from mazerl.env import compass_index, compass_from_index
+    env, _ = make_env(task="escape")
+    _, comp = env.observe()
+    assert torch.equal(compass_from_index(compass_index(comp)), comp)
+    env, _ = make_env()
+    _, comp = env.observe()
+    assert torch.equal(compass_from_index(compass_index(comp)), comp)
+
+
+def test_escape_training_runs():
+    from mazerl.a2c import train
+    bank = MazeBank.from_mazes([Maze.from_ascii(SIMPLE)])
+    run = train(task="escape", episodes=300, n_envs=16, batch_moves=256, bank=bank, device="cpu",
+                progress=False)
+    assert run.settings.task == "escape" and run.history["bypass"][-1] == 0

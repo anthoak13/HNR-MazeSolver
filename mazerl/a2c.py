@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from .agent import Agent
-from .env import MazeEnv, Rewards, OBS_CHANNELS, CROP, N_COMPASS
+from .env import MazeEnv, Rewards, OBS_CHANNELS, CROP, compass_index, compass_from_index
 from .maze import training_bank, MIX
 
 STAT_KEYS = ("return", "success", "steps", "probes", "breaks", "outside", "new_cells", "bypass")
@@ -40,6 +40,7 @@ class Settings:
     net_channels: tuple = (32, 64, 64)   # vision layers' sizes
     net_hidden: int = 100                # reasoning layers' size
     seed: int = 0
+    task: str = "flag"                   # "flag" (the article's) or "escape" (see MazeEnv)
 
 
 @dataclass
@@ -116,7 +117,8 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
         agent.load_perception(perception)
     agent.freeze_perception(freeze_perception)
     opt = torch.optim.Adam([p for p in agent.parameters() if p.requires_grad], lr=s.learning_rate)
-    env = MazeEnv(bank, s.n_envs, rewards, s.max_steps, device, seed=s.seed, bypass_rule=s.bypass_rule)
+    env = MazeEnv(bank, s.n_envs, rewards, s.max_steps, device, seed=s.seed, bypass_rule=s.bypass_rule,
+                  task=s.task)
     scale = max(abs(v) for v in rewards.as_dict().values()) or 1.0   # rewards -> [-1, 1]
 
     N, T = s.n_envs, s.max_steps
@@ -140,7 +142,7 @@ def train(rewards=None, settings=None, start_from=None, device=None, progress=Tr
             action, logp, value = agent.act(obs, comp)
         t = env.t.clone()
         buf_obs[env.rows, t] = obs.to(torch.uint8)
-        buf_comp[env.rows, t] = comp.argmax(1).to(torch.uint8)
+        buf_comp[env.rows, t] = compass_index(comp).to(torch.uint8)
         buf["action"][env.rows, t] = action.float()
         buf["logp"][env.rows, t] = logp
         buf["value"][env.rows, t] = value
@@ -211,7 +213,7 @@ def _collect(pool, envs, lengths, buf_obs, buf_comp, buf, discount, discounts):
 
 def _update(agent, opt, batch, s, beta):
     obs = batch["obs"].float()
-    comp = F.one_hot(batch["comp"].long(), N_COMPASS).float()
+    comp = compass_from_index(batch["comp"])
     logits, value = agent(obs, comp)
     dist = torch.distributions.Categorical(logits=logits)
     logp = dist.log_prob(batch["action"].long())
