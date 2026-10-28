@@ -106,3 +106,12 @@ pretraining.
 still learning, on escape, 2 seeds: reaches 90% training success **sooner than** reward-free
 pretraining (under 5k attempts) and weak-spot mazes **at least as high** (≥ 82%). Reason: RL on the
 flag task trained the perception on exactly what escape needs (walls, gaps, weak spots).
+
+## Round T3 predictions (written after T2, before running T3)
+The still-learning comparison gave a small escape advantage (2–3 points in average training success,
+both seeds) and a split result on the flag task (one seed ahead, one behind). Two more seeds (2 and 3,
+each with its own pretraining run) for scratch and pretrained on both tasks, 20k:
+- **Escape:** pretrained above scratch on both new seeds, by 1–4 points of average training success
+  over the run, and higher success on weak-spot mazes in the test.
+- **Flag:** no consistent direction. Across all four seeds, the pretrained-minus-scratch difference in
+  average training success changes sign at least once.

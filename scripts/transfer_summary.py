@@ -54,30 +54,45 @@ def main():
         plot(runs, a.plot)
 
 
-def plot(runs, path):
+def blocks(history, size=1000, total=None):
+    """Average training success in consecutive blocks of ``size`` attempts (by attempts finished)."""
+    e, s = np.asarray(history["episodes"]), np.asarray(history["success"])
+    total = total or int(e[-1])
+    mids, vals = [], []
+    for a in range(0, total, size):
+        m = (e > a) & (e <= a + size)
+        if m.any():
+            mids.append((a + size / 2) / 1000)
+            vals.append(s[m].mean() * 100)
+    return np.array(mids), np.array(vals)
+
+
+def plot(runs, path, panels=None):
+    """One panel per task; one line per starting point (mean of seeds), band = range across seeds."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from mazerl.viz import SERIES, _style
-    tasks = sorted({r["task"] for r in runs}, reverse=True)
-    labels = sorted({label(r) for r in runs}, key=lambda l: (l != "scratch", l))
+    tasks = panels or sorted({r["task"] for r in runs}, reverse=True)
+    order = ["scratch", "pretrained", "pretrained (frozen)", "random perception (frozen)"]
+    labels = sorted({label(r) for r in runs}, key=lambda l: (order.index(l) if l in order else 9, l))
     color = {l: SERIES[i % len(SERIES)] for i, l in enumerate(labels)}
-    fig, axes = plt.subplots(1, len(tasks), figsize=(5.2 * len(tasks), 3.6), squeeze=False)
+    fig, axes = plt.subplots(1, len(tasks), figsize=(5.4 * len(tasks), 3.8), squeeze=False)
     for ax, task in zip(axes[0], tasks):
-        seen = set()
-        for r in runs:
-            if r["task"] != task:
+        for l in labels:
+            group = [r for r in runs if r["task"] == task and label(r) == l]
+            if not group:
                 continue
-            l = label(r)
-            h = r["history"]
-            ax.plot(np.asarray(h["episodes"]) / 1000, smooth(h["success"]) * 100, color=color[l], lw=1.8,
-                    ls="-" if r["seed"] == 0 else "--", label=l if l not in seen else None)
-            seen.add(l)
+            curves = [blocks(r["history"]) for r in group]
+            n = min(len(c[0]) for c in curves)
+            x = curves[0][0][:n]
+            ys = np.array([c[1][:n] for c in curves])
+            ax.fill_between(x, ys.min(0), ys.max(0), color=color[l], alpha=0.18, lw=0)
+            ax.plot(x, ys.mean(0), color=color[l], lw=2, label=f"{l} ({len(group)} seeds)")
         _style(ax, f"{task} task: success during training (%)")
-        ax.set_xlabel("attempts (thousands)")
+        ax.set_xlabel("attempts (thousands)", fontsize=9)
         ax.set_ylim(0, 100)
         ax.legend(frameon=False, fontsize=8, loc="lower right")
-    fig.text(0.5, -0.02, "solid = seed 0, dashed = seed 1", ha="center", fontsize=8)
     fig.tight_layout()
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=130, bbox_inches="tight")
