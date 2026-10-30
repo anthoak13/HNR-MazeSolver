@@ -21,16 +21,15 @@ import torch
 from matplotlib.patches import Rectangle, FancyArrow, Circle
 
 from mazerl.env import MazeEnv, PAD, VIEW, CROP, UNSEEN, M_FLOOR, M_OUTSIDE, M_WALL, M_FLAG, M_EDGE, EDGE
-from mazerl.maze import ARENA, WALL, WEAK, OUTSIDE, training_bank
+from mazerl.maze import ARENA, FLOOR, WALL, WEAK, OUTSIDE, training_bank
 from mazerl.perception import frontier_direction
 
-FLOOR_C, WALL_C, EDGE_C, TINT, FOG = "#ffffff", "#c8c8c8", "#4a4a4a", "#f6dfd9", "#b7c4d6"
+FLOOR_C, WALL_C, EDGE_C, TINT, FOG = "#ffffff", "#dcdcdc", "#4a4a4a", "#f6dfd9", "#b7c4d6"   # wall and outside as in the player
 RED, BLUE, INK = "#d9472b", "#2b6cb0", "#121212"
 MOVES = {0: (-1, 0), 1: (0, 1), 2: (1, 0), 3: (0, -1)}          # move index -> (d row, d col)
 TRUE_COLOR = {OUTSIDE: TINT, WALL: WALL_C, WEAK: WALL_C, EDGE: EDGE_C}     # weak spots count as wall
 MEM_COLOR = {M_FLOOR: FLOOR_C, M_OUTSIDE: TINT, M_WALL: WALL_C, M_EDGE: EDGE_C, M_FLAG: FLOOR_C}
 MARGIN = PAD                                 # squares drawn beyond the arena in the memory panels
-PATH_MARGIN = 1                              # ... and in the path figure
 
 
 def walk(maze_id, seed, explore=0.3, max_steps=200):
@@ -148,31 +147,58 @@ def _outline(ax, n):
 
 
 # ---------------------------------------------------------------------------------------------
-def path_figure(frames, flag, picks, out):
-    """The real maze (edge, outside, walls, weak spots with a crack, flag, start) and the walk."""
-    grid = frames[0]["grid"]
-    lo = PAD - PATH_MARGIN
-    span = range(lo, PAD + ARENA + PATH_MARGIN)
-    fig, ax = plt.subplots(figsize=(6, 6))
-    for i, r in enumerate(span):
-        for j, c in enumerate(span):
-            v = int(grid[r, c])
-            if v in TRUE_COLOR:
-                _cell(ax, i, j, TRUE_COLOR[v])
-            if v == WEAK:                                  # a crack: a weak spot looks like a wall
-                ax.plot([j - 0.3, j - 0.05, j + 0.08, j + 0.3], [i - 0.35, i - 0.05, i + 0.1, i + 0.35],
-                        color=INK, lw=1.1, zorder=3)
-    _trail(ax, frames, max(picks), lo, lo)
-    r, c = frames[0]["pos"]
-    ax.plot(c - lo, r - lo, "o", mfc="white", mec=RED, markersize=10, mew=2, zorder=5)
-    ax.plot(flag[1] - lo, flag[0] - lo, marker=(3, 0, 0), color=INK, markersize=11, zorder=5)
+# The animation player's look (mazerl/player/player.js), reproduced for a still image
+PLAYER = {"red": "#d9472b", "start": "#e2694f", "wall": "#dcdcdc", "weak": "#f3f3f3", "dot_in": "#a6a6a6",
+          "dot_out": "#d3d3d3", "tint": "#f6dfd9", "flag": "#262626", "crack": "#9a9a9a"}
+
+
+def path_figure(frames, flag, picks, out, inches=6.0):
+    """The real maze drawn as the animation player draws it, the walker's trail up to the last
+    snapshot, and numbered markers where the snapshots are taken."""
+    first, last = frames[0]["grid"], frames[max(picks)]["grid"]
+    arena = range(PAD, PAD + ARENA)
+    pt = inches * 72 / ARENA                                   # points per square
+    fig = plt.figure(figsize=(inches, inches))
+    ax = fig.add_axes([0, 0, 1, 1])
+    P = PLAYER
+    for i, r in enumerate(arena):
+        for j, c in enumerate(arena):
+            v, now = int(first[r, c]), int(last[r, c])
+            if v == OUTSIDE:
+                _cell(ax, i, j, P["tint"])
+            if v in (WALL, WEAK) and now != FLOOR:
+                _cell(ax, i, j, P["wall"])
+                if v == WEAK:
+                    ax.add_patch(Rectangle((j - 0.395, i - 0.395), 0.79, 0.79, facecolor=P["weak"], edgecolor="none"))
+            else:
+                ax.add_patch(Circle((j, i), 0.055, facecolor=P["dot_out"] if v == OUTSIDE else P["dot_in"],
+                                    edgecolor="none"))
+            if v == WEAK and now == FLOOR:                     # a weak spot the walker broke open
+                x, y = j - 0.5, i - 0.5
+                ax.plot([x + .22, x + .46, x + .41, x + .74], [y + .26, y + .48, y + .62, y + .78], color=P["crack"],
+                        lw=0.045 * pt, solid_capstyle="round", solid_joinstyle="round")
+                ax.plot([x + .46, x + .72], [y + .48, y + .30], color=P["crack"], lw=0.045 * pt,
+                        solid_capstyle="round")
+    pts = np.array([f["pos"] for f in frames[:max(picks) + 1]], dtype=float) - PAD
+    ax.plot(pts[:, 1], pts[:, 0], color=P["red"], lw=0.26 * pt, alpha=0.7, solid_capstyle="round",
+            solid_joinstyle="round", zorder=4)
+    r, c = np.array(frames[0]["pos"]) - PAD
+    ax.add_patch(Circle((c, r), 0.29, facecolor="white", edgecolor=P["start"], lw=0.065 * pt, zorder=5))
+    fr, fc = np.array(flag) - PAD
+    ax.add_patch(Circle((fc, fr), 0.43, facecolor=P["flag"], edgecolor="none", zorder=5))
+    ax.plot([fc - 0.13, fc - 0.13], [fr - 0.22, fr + 0.25], color="white", lw=0.055 * pt, solid_capstyle="round",
+            zorder=6)
+    ax.add_patch(plt.Polygon([(fc - 0.13, fr - 0.23), (fc + 0.22, fr - 0.09), (fc - 0.13, fr + 0.06)],
+                             facecolor="white", edgecolor="none", zorder=6))
+    r, c = pts[-1]
+    ax.add_patch(Circle((c, r), 0.28, facecolor=P["red"], edgecolor="none", zorder=7))
     for n, k in enumerate(picks, 1):
-        r, c = frames[k]["pos"]
-        ax.plot(c - lo + 0.6, r - lo - 0.6, "o", color="white", mec=INK, markersize=14, mew=1.2, zorder=8)
-        ax.text(c - lo + 0.6, r - lo - 0.6, str(n), ha="center", va="center", fontsize=9, color=INK,
-                weight="bold", zorder=9)
-    _bare(ax, len(span))
-    fig.savefig(out, dpi=160, bbox_inches="tight")
+        r, c = pts[k]
+        ax.add_patch(Circle((c + 0.6, r - 0.6), 0.36, facecolor="white", edgecolor=INK, lw=1.1, zorder=8))
+        ax.text(c + 0.6, r - 0.6, str(n), ha="center", va="center", fontsize=8.5, color=INK, weight="bold",
+                zorder=9)
+    _bare(ax, ARENA)
+    fig.savefig(out, dpi=160)
     plt.close(fig)
 
 
