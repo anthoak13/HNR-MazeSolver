@@ -1,17 +1,17 @@
 # Teaching guide
 
-How the maze activity is meant to work in class. Students will have read the NYT article *"A.I.'s Rogue
-Behavior Starts With Its Training"* beforehand. The evidence behind each claim is in `EXPERIMENTS.md`, and
-the build details are in `PLAN.md`.
+What the maze activity is for, and the path through it that the experiments support. This is a focus
+document for the work; the user designs the student notebook. Students will have read the NYT article
+*"A.I.'s Rogue Behavior Starts With Its Training"* beforehand. What has been learned is in `FINDINGS.md`,
+the evidence in `EXPERIMENTS.md` and `reports/pretraining-transfer.md`, and the build details in `PLAN.md`.
 
 ## Goals
-1. **How these agents are built: pretraining, then RL.** One model learns to "see" mazes with no rewards
-   at all. Then RL turns it into an agent for a task, and possibly for different tasks from the same
-   pretrained model. This is the recipe behind LLM agents. *Whether RL for several tasks from one
-   pretrained model works well enough for class is still untested* (`PLAN.md` §10). If it doesn't, this
-   part shrinks to a short explanation.
-2. **Rogue behavior comes from training** (the article). Students reproduce the article's two examples
-   and see how rewards and training experience cause them.
+1. **General first, then specialized.** Pretraining with no rewards teaches the network general knowledge
+   of mazes: what hidden squares probably hold, and where unexplored ground is. RL then specializes that
+   network into an agent for one task, and a different reward specializes it into a different agent. This
+   is the recipe behind LLMs.
+2. **Rogue behavior comes from the rewards** (the article). Students change rewards and see how they, and
+   the training experience, produce the article's two behaviors and reward hacking.
 
 ## The article's two examples
 
@@ -24,8 +24,8 @@ the build details are in `PLAN.md`.
 
 **2. The p.7 maze: it leaves when it doesn't need to** (p.7, "Agent taking outside path although inside
 path is available")
-- A legitimate route exists, and the agent leaves anyway. Once breaking out is something it knows how to
-  do, it uses it whenever the rewards slightly favor it.
+- A legitimate route exists, and the agent leaves anyway, whenever the rewards slightly favor the outside
+  route.
 - **Real incident:** RubyGems.
 
 ## Path through the activity
@@ -34,48 +34,65 @@ path is available")
 1. **The article's model, in code.** What the agent sees (a 5×5 view, memory, a compass), the points for
    each event, and an untrained agent moving at random.
 2. **Pretraining.** The model learns to predict unseen parts of the maze and where unexplored ground is,
-   with no rewards. This is the analog of next-word prediction.
-3. **RL on top.** Train the pretrained model to reach the flag. Watch its reward curves (like the cost
-   curves from 05-01) and the agent at different stages of training. Compare it with an agent trained
-   from scratch.
-4. **A second task from the same pretrained model** (if it works), for example escaping the maze. Rewards
-   decide what the model is *for*; pretraining decides what it *understands*.
+   with no rewards. This is the analog of next-token prediction. On mazes it never saw, it predicts hidden
+   squares 86% of the time, against 53–55% for always guessing the most common square.
+3. **Specializing it for the flag.** Keep the pretrained layers fixed and let RL train only the top layers
+   (about 10k of 230k parameters). The agent learns to reach the flag: 62–75% on open mazes. Do the same on
+   top of random layers and it stays at chance (about 9%). The general knowledge is in the pretrained
+   layers; RL only teaches the agent what to want.
+4. **A second specialization from the same base: escaping the maze.** The same fixed pretrained layers, a
+   different reward (start where the flag would be, no compass, the first step outside wins): 97% on open
+   mazes. Same knowledge, different reward, different agent.
+   - **Not to claim:** that pretraining makes RL faster (the gain is small and inconsistent), or that
+     reward-free pretraining is the only route to general knowledge. Layers trained by RL on the flag task
+     also carried over to escape, which can be a discussion point: specialized skills transfer to related
+     tasks too.
 
-**Part 2: rogue behavior from training**
+**Part 2: rogue behavior from the rewards**
 5. **The p.6 maze.** Predict, then watch the trained agent on the maze whose flag is walled off. It
    leaves, breaks back in and reaches the flag in a large share of attempts, though not every time.
-6. **Why it can.** Agents trained without mazes that require going outside, or without mazes that require
-   breaking walls, never break out. Students can train one of these live and see the missing skill.
-7. **The p.7 maze and reward design.** Raise the exploration reward and train live. The agent tours the
-   outside farming points, and on the p.7 maze it leaves every time. That's reward hacking.
-8. **Discussion.** Our filter that drops attempts ending outside didn't catch the hacking: monitoring
-   outcomes misses an agent gaming the process. Also responsibility, and sandbox design. Optional: smaller
-   models need more training to learn the same skills; once trained, they behave the same.
+6. **The outside penalty and the p.7 maze.** The cost of a step outside sets how often the agent leaves
+   when it doesn't need to: 0–6% of attempts at −0.05, 28–51% at the default −0.01, up to 99% when free.
+   That's the article's "when the rewards slightly favor it," shown directly.
+7. **Reward hacking.** Wherever a step outside nets positive reward, the agent tours the outside farming
+   points before heading to the flag.
+   - A large exploration reward (+0.05) does it. So does the small default one (+0.005) once outside moves
+     are free, about as much as a reward ten times larger. Whether there's a net-positive loop matters, not
+     the size of the reward.
+   - The farming agent's score goes up while it takes about 1.5× as long to finish weak-spot mazes, and it
+     almost never reaches the p.6 flag.
+   - Success on ordinary mazes barely changes under any reward tested. The rewards shape the route more
+     than the result.
+8. **Discussion.**
+   - Our rule that excludes attempts ending outside didn't catch the hacking: checking outcomes misses an
+     agent gaming the process.
+   - The same rule starved some pretrained agents of training data: a safety rule can have side effects
+     on learning.
+   - Also responsibility, and sandbox design.
 
 ## What to expect
 - **Hardware:** a Colab T4. A live training run takes about 2–5 minutes.
-- **Reaching the p.6 flag needs a fully trained agent;** it rarely happens after a short live run. Use the shipped
-  agents for it.
-- **Results vary between training runs:** the same settings give an agent that reaches the p.6 flag
-  35% of the time, or 75%. That's worth telling students: training is not deterministic.
+- **Reaching the p.6 flag needs a fully trained agent;** it rarely happens after a short live run. Use the
+  shipped agents for it.
+- **Results vary between training runs:** the same settings give an agent that reaches the p.6 flag 35% of
+  the time, or 75%. Whether an agent discovers a loophole is partly luck too: in each farming setting, one
+  seed in three never found it. That's worth telling students: training is not deterministic.
 - **The maze rules are our simplified version** of the article's model, and the notebook says which parts
   are ours.
 
 ## Deliverables to package
 
-**Trained weights** (shipped in `mazerl/pretrained/`, trained on the cluster):
+**Trained weights** (shipped in `mazerl/pretrained/`):
 
 | Step | Weights | Status |
 |---|---|---|
 | 2 | pretrained perception (no rewards) | method built; final weights to train |
-| 3 | RL on pretrained perception, flag task, **with snapshots at several stages of training** | to train |
-| 3 | RL from scratch, flag task, the same budget, for comparison | to train |
-| 4 | RL on pretrained perception, second task, with stage snapshots | the task is still to design and test |
-| 5, 7 | `base`: full-scale flag agent with stage snapshots, a typical seed (not the best) | to train |
-| 6 | `base` trained without the mazes whose only route goes outside | to train |
-| 6 | `base` trained without the mazes whose only route goes through an interior weak spot | to train |
-| 7 | `base` trained with a high exploration reward (backup if live training isn't possible) | to train |
-| 8 (optional) | small and large versions of `base` | to train |
+| 3 | flag agent on fixed pretrained layers, with snapshots at several stages of training | to train |
+| 3 | flag agent on fixed random layers, the same length, for comparison | to train |
+| 4 | escape agent on the same fixed pretrained layers, with stage snapshots | to train |
+| 5 | `base`: full-scale flag agent with stage snapshots, a typical seed (not the best) | to train |
+| 6 | `base` with outside moves free, and with outside moves at −0.05 | to train |
+| 7 | `base` with a high exploration reward (backup if live training isn't possible) | to train |
 
 **Maze files:**
 
@@ -88,21 +105,21 @@ path is available")
 
 | Function | Status |
 |---|---|
-| animated playback of one or several agents | done |
+| animated playback of one or several agents | done; can't show escape attempts yet |
 | agents from several training stages side by side | done |
 | evaluation on new mazes or the article's mazes | done |
 | on the p.6 maze, the share of attempts that left, broke back in, and reached the flag (`breakout_stages()`) | done; needs to be exposed in the API |
 | reward curves | done |
 | live training with progress bars | done |
+| the escape task's environment | done (`MazeEnv(task="escape")`, `Settings.task`) |
 | a warning when no GPU is available | to build |
 | what the agent sees (view, memory, compass) | to build |
 | where an attempt's points came from | to build |
-| the second task's environment | to build if Part 1 step 4 stays |
 
 **Notebooks:**
 
 | Notebook | Status |
 |---|---|
-| student notebook following this path, with prediction questions in the 05-0x style | to write |
-| instructor key | to write |
+| student notebook, with prediction questions in the 05-0x style | the user writes it |
+| instructor key | the user writes it |
 | Colab speed check | done |
