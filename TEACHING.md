@@ -31,15 +31,39 @@ path is available")
 ## Path through the activity
 
 **Part 1: building an agent**
-1. **The article's model, in code.** What the agent sees (a 5×5 view, memory, a compass), the points for
-   each event, and an untrained agent moving at random.
-2. **Pretraining.** The model learns to predict unseen parts of the maze and where unexplored ground is,
-   with no rewards. This is the analog of next-token prediction. On mazes it never saw, it predicts hidden
-   squares 86% of the time, against 53–55% for always guessing the most common square.
+
+Pretraining doubles as the introduction to the model: explaining what the network is trained to guess
+explains what it sees.
+
+1. **What the agent sees.** Each move, the network gets an 11×11 window of its memory centered on itself:
+   every square marked as not seen yet, open floor, outside, wall, flag or arena edge, plus which squares
+   it has stood on, which it can see right now (a 5×5 view; walls block sight), and which walls it walked
+   into that held firm. It also gets an 8-way compass pointing to the flag. Then the points for each
+   event, and an untrained agent moving at random.
+2. **Pretraining: learning about mazes with no rewards.** The analog of next-token prediction.
+   - **The data.** Rule-following walkers (simple programs, not networks) explore the 13,148 training
+     mazes in the same environment: 70% of the time they step toward the nearest open square they've seen
+     but not stood on, 30% of the time they move at random. After every move, the agent's input is
+     recorded: about 150,000 snapshots. The walkers ignore the flag and earn nothing (figure:
+     `reports/figures/pretraining/walker-path.png`).
+   - **The exercise.** For each snapshot, the network guesses (a) what's really in every square of the
+     window it hasn't seen yet: open, outside, wall or edge, with weak spots counting as wall so it never
+     learns where they are; and (b) which move heads toward the nearest open square it hasn't stood on.
+     To fill in hidden squares it has to learn how these mazes are built: walls in long lines with single
+     gaps, an outside band beyond the outer wall, the edge beyond that (figure:
+     `reports/figures/pretraining/snapshots.png`).
+   - **What it learns.** On mazes it never saw, it guesses hidden squares right 86% of the time, against
+     53–55% for always guessing the most common kind, and the direction 99% of the time. Both overstate it
+     somewhat: the edge and the outside band are easy guesses, and the direction can mostly be worked out
+     from the input.
+   - **The compass during pretraining** still points to each maze's flag, which the walkers ignore.
+     Neither guess depends on it.
 3. **Specializing it for the flag.** Keep the pretrained layers fixed and let RL train only the top layers
    (about 10k of 230k parameters). The agent learns to reach the flag: 62–75% on open mazes. Do the same on
    top of random layers and it stays at chance (about 9%). The general knowledge is in the pretrained
-   layers; RL only teaches the agent what to want.
+   layers; RL only teaches the agent what to want. The specialization is partial: on weak-spot and
+   outside-route mazes the frozen agent reaches only 22–54%, while an agent whose whole network trains
+   gets above 90%. The harder skills need the lower layers to keep learning.
 4. **A second specialization from the same base: escaping the maze.** The same fixed pretrained layers, a
    different reward (start where the flag would be, no compass, the first step outside wins): 97% on open
    mazes. Same knowledge, different reward, different agent.
