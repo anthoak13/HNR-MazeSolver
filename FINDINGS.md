@@ -85,12 +85,22 @@ three seeds each.
   from the article's author; the other values are ours.
 
 ## Pretraining
-- **Reward-free pretraining** of the vision layers, predicting hidden parts of the maze and the direction
-  to unexplored ground, is the maze analog of next-token prediction.
-- **On the flag task it gives only a small head start.** With the pretrained layers frozen, the agent
-  doesn't learn the task.
-- **Being tested now:** whether the same pretraining speeds up a different task, escaping the maze. If it
-  does, that is the maze analog of one pretrained LLM fine-tuned for many jobs.
+Details in `reports/pretraining-transfer.md` (20k-attempt runs on CPU, 2–4 seeds per setting).
+- **Reward-free pretraining** of the perception layers, predicting hidden parts of the maze and the
+  direction to unexplored ground, is the maze analog of next-token prediction. It predicts unseen cells
+  86% of the time (53–55% by always guessing the most common cell) on mazes it never trained on.
+- **It builds something RL can use.** With the perception layers frozen and only the last layers (about
+  10k of 230k parameters) trained by RL, pretrained perception reaches 97% on open mazes in an escape task
+  and 62–75% on open mazes in the flag task. Random perception stays at chance on both.
+- **The same pretrained perception serves two tasks:** reaching the flag, and escaping the maze from where
+  the flag would be (no compass, first step outside wins). The reward decides which agent RL makes.
+- **It doesn't make RL meaningfully faster.** When the whole network trains, pretraining gives escape a
+  small, consistent head start (every pretrained run beat every from-scratch run, by 1.5–6.5 points of
+  training success averaged over the run) and the same final success. On the flag task it gives no
+  reliable gain: about 1 in 4 pretrained runs stalls, because the untrained agent strongly favors one move,
+  attempts that leave the maze are excluded from training, and the agent is starved of data.
+- **It isn't uniquely general here.** Perception taken from an agent trained by RL on the flag task gives
+  escape a bigger head start than reward-free pretraining does.
 
 ## What this means for the lesson
 - **The agent learns whatever the rewards pay for.** Every behavior, wanted or not, traces back to the

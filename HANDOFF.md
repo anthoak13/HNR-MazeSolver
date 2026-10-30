@@ -9,8 +9,9 @@ Read these first:
 ## In flight
 - **Round 11 is done** (`EXPERIMENTS.md`): each reward varied on its own. The re-scored `.json` files
   (with time to finish) are in `runs/r11/rescored/` and `runs/r4/rescored/` on the cluster.
-- **Pretraining and transfer:** a separate agent is testing the escape task locally on CPU, in a git
-  worktree, and writing a report. Its runs are well under 126k attempts.
+- **Pretraining and transfer is done:** `reports/pretraining-transfer.md` (escape task built:
+  `MazeEnv(task="escape")`, `Settings.task`). Weights from those runs are only on the desktop, in the
+  agent's worktree `runs/local/`, not committed.
 - The model-size experiments are done (`EXPERIMENTS.md`, round 10): trained to
   convergence, size doesn't change the behavior, so everything uses the article's default size from now
   on.
