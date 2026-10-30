@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from .agent import Agent
-from .env import MazeEnv, PAD, CROP, SIZE, UNSEEN, M_FLOOR, M_OUTSIDE, M_FLAG
+from .env import MazeEnv, PAD, CROP, SIZE, UNSEEN, M_FLOOR, M_OUTSIDE, M_FLAG, compass_index, compass_from_index
 from .maze import MazeBank, training_bank
 
 N_CLASSES = 4                                  # open inside, outside, wall (incl. weak spots), edge
@@ -65,7 +65,7 @@ def collect(bank, n_samples, n_envs=256, explore=0.3, max_steps=200, seed=0, dev
         obs, comp = env.observe()
         front = frontier_direction(env)
         keep["obs"].append(obs.to(torch.uint8).cpu())
-        keep["comp"].append(comp.argmax(1).to(torch.uint8).cpu())
+        keep["comp"].append(compass_index(comp).to(torch.uint8).cpu())
         keep["truth"].append(_true_window(env).to(torch.int8).cpu())
         keep["unseen"].append((obs[:, UNSEEN] > 0).cpu())
         keep["frontier"].append(front.to(torch.int8).cpu())
@@ -111,7 +111,7 @@ class Pretrained:
 
 def _losses(agent, heads, b, device):
     obs = b["obs"].to(device).float()
-    comp = F.one_hot(b["comp"].to(device).long(), 8).float()
+    comp = compass_from_index(b["comp"].to(device))
     map_logits, front_logits = heads(agent.perceive(obs, comp))
     truth = b["truth"].to(device).long()
     unseen = b["unseen"].to(device)

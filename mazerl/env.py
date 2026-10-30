@@ -7,6 +7,13 @@ Rules (see PLAN.md for which come from the article):
   * the agent sees a 5 x 5 window (walls block line of sight) and remembers everything it has seen,
     including which walls it has already walked into and found solid
   * it knows the compass direction (8-way) of the flag
+
+Two tasks share these rules:
+  * "flag" (the article's): start at the top-left entrance, reach the flag.
+  * "escape" (a second task for the same pretrained perception): start on the flag's cell, with no
+    flag on the map and no compass; stepping onto any outside cell ends the attempt and earns the
+    flag reward (no outside penalty on that step). Attempts that end outside are successes here, so
+    nothing counts as a bypass.
 """
 from dataclasses import dataclass, asdict
 from fractions import Fraction
@@ -29,6 +36,19 @@ UNSEEN, M_FLOOR, M_OUTSIDE, M_WALL, M_FLAG, M_EDGE = range(6)
 N_MEMORY = 6
 OBS_CHANNELS = N_MEMORY + 3      # + visited-by-me, + visible-right-now, + probed-and-held-firm
 N_COMPASS = 8
+
+TASKS = ("flag", "escape")
+NO_FLAG = -100           # escape task: the flag position is moved off the board
+
+def compass_index(compass):
+    """Pack an (n, 8) compass into indices for storage; an all-zero compass (no flag) is 8."""
+    return torch.where(compass.sum(1) > 0, compass.argmax(1), torch.full_like(compass.argmax(1), N_COMPASS))
+
+
+def compass_from_index(index):
+    """Inverse of compass_index."""
+    return F.one_hot(index.long(), N_COMPASS + 1)[:, :N_COMPASS].float()
+
 
 MOVES = torch.tensor([[-1, 0], [0, 1], [1, 0], [0, -1]])
 ACTION_NAMES = ["up", "right", "down", "left"]
@@ -102,7 +122,10 @@ class MazeEnv:
     """
 
     def __init__(self, bank, n_envs, rewards=None, max_steps=100, device="cpu", seed=0,
-                 auto_reset=True, maze_ids=None, bypass_rule="left"):
+                 auto_reset=True, maze_ids=None, bypass_rule="left", task="flag"):
+        if task not in TASKS:
+            raise ValueError(f"task must be one of {TASKS}")
+        self.task = task
         self.n = n_envs
         self.rewards = rewards or Rewards()
         self.max_steps = max_steps
@@ -161,9 +184,13 @@ class MazeEnv:
             ids = torch.randint(len(self.bank_grids), (len(idx),), generator=self.gen).to(self.device)
         self.maze_id[idx] = ids
         self.grid[idx] = self.bank_grids[ids]
-        self.start[idx] = self.bank_starts[ids]
-        self.pos[idx] = self.bank_starts[ids]
-        self.flag[idx] = self.bank_flags[ids]
+        if self.task == "escape":
+            self.start[idx] = self.bank_flags[ids]
+            self.flag[idx] = NO_FLAG
+        else:
+            self.start[idx] = self.bank_starts[ids]
+            self.flag[idx] = self.bank_flags[ids]
+        self.pos[idx] = self.start[idx]
         self.memory[idx] = UNSEEN
         self.visited[idx] = False
         self.probed[idx] = False
@@ -211,6 +238,8 @@ class MazeEnv:
         return x, self.compass()
 
     def compass(self):
+        if self.task == "escape":
+            return torch.zeros((self.n, N_COMPASS), device=self.device)
         d = (self.flag - self.pos).float()
         angle = torch.atan2(-d[:, 0], d[:, 1])                    # 0 = east, counter-clockwise
         sector = torch.round(angle / (np.pi / 4)).long() % N_COMPASS
@@ -243,7 +272,11 @@ class MazeEnv:
         new = ~self.visited[self.rows, r, c]
         self.visited[self.rows, r, c] = True
         outside = self.grid[self.rows, r, c] == OUTSIDE
-        reached = (self.pos == self.flag).all(1)
+        if self.task == "escape":
+            reached = outside.clone()
+            outside = outside & ~reached          # no outside penalty on the step that escapes
+        else:
+            reached = (self.pos == self.flag).all(1)
         self.entered |= self.inside[r, c] & ((self.pos - self.start).abs().max(1).values >= 2)
         self.t += 1
 
@@ -266,7 +299,9 @@ class MazeEnv:
         # "around": re-entered somewhere other than where it left, or never entered
         # "break_in": broke in through an outer weak spot, or never entered
         # "never_entered": never got more than one cell into the maze
-        if self.bypass_rule == "left":
+        if self.task == "escape":
+            bypass = torch.zeros_like(done)       # ending outside is the goal here
+        elif self.bypass_rule == "left":
             bypass = ~self.inside[self.pos[:, 0], self.pos[:, 1]]
         elif self.bypass_rule == "around":
             bypass = ~self.entered | self.went_around
