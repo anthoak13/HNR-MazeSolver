@@ -58,16 +58,6 @@ explains what it sees.
      from the input.
    - **The compass during pretraining** still points to each maze's flag, which the walkers ignore.
      Neither guess depends on it.
-   - **What the pretraining images must do for the story:**
-     1. Connect to what students already know: recognizably the article's animated maze world, so
-        pretraining is anchored in something familiar rather than a new diagram to decode.
-     2. Put the reader in the agent's position: what it knows at one moment is limited, partial and
-        local, and the reader should feel the gap between that and the whole maze.
-     3. Let the reader try the task: looking at the partial view, the reader should find themselves
-        guessing what's hidden before seeing the answer. If they can guess, they believe a network can
-        learn to.
-     4. Make the absence of a goal noticeable: nothing is chased or rewarded; it should feel like
-        observation, not a game.
 3. **Specializing it for the flag.** Keep the pretrained layers fixed and let RL train only the top layers
    (about 10k of 230k parameters). The agent learns to reach the flag: 62–75% on open mazes. Do the same on
    top of random layers and it stays at chance (about 9%). The general knowledge is in the pretrained
