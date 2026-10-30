@@ -51,7 +51,7 @@ explains what it sees.
      learns where they are; and (b) which move heads toward the nearest open square it hasn't stood on.
      To fill in hidden squares it has to learn how these mazes are built: walls in long lines with single
      gaps, an outside band beyond the outer wall, the edge beyond that (figure:
-     `reports/figures/pretraining/snapshots-a.png` or `snapshots-b.png`).
+     `reports/figures/pretraining/snapshots.png`).
    - **What it learns.** On mazes it never saw, it guesses hidden squares right 86% of the time, against
      53–55% for always guessing the most common kind, and the direction 99% of the time. Both overstate it
      somewhat: the edge and the outside band are easy guesses, and the direction can mostly be worked out
