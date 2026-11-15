@@ -39,13 +39,14 @@ def main():
     ap.add_argument("--evaluate", type=int, default=300, help="attempts per test in the test suite")
     ap.add_argument("--policy-init-scale", type=float, default=1.0,
                     help="shrink the fresh move-choice layer at the start (0.01: even starting policy)")
+    ap.add_argument("--device", default="cpu", help="cpu or cuda")
     ap.add_argument("--name", required=True)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     torch.set_num_threads(a.threads)
 
     perception, source = (None, "none") if a.start == "scratch" else load_start(a.start)
-    run = train(task=a.task, seed=a.seed, episodes=a.episodes, device="cpu", progress=False,
+    run = train(task=a.task, seed=a.seed, episodes=a.episodes, device=a.device, progress=False,
                 perception=perception, freeze_perception=a.freeze, policy_init_scale=a.policy_init_scale,
                 checkpoint_at=(1_000, 2_000, 5_000, 10_000))
     a.out.mkdir(parents=True, exist_ok=True)

@@ -817,3 +817,38 @@ weak-spot mazes, so it farms too, just less on open and p.7 mazes.
   weak-spot mazes just as often, but takes 15% longer to find the way.
 - **p.6 success is too noisy across seeds to rank most settings** (16–75% for the default alone). The one
   clear effect: farming agents almost never reach the p.6 flag (0–2%).
+
+## Round 11b: A seed-0 base agent from the round 11 code (for shipping)
+The shipped agents should all come from one seed, so they differ only in their rewards. Seed 0 is the one
+seed where every round 11 variant behaves typically (both farming settings farm). The seed-0 base agent
+on hand (`r4/mix_1-1-1_s0`) is from older code and was run with `maze_mix=(1,1,1)`, so it may not share
+starting weights or layouts with the round 11 runs. One run: `base_s0 --seed 0` at commit `6c52fa1`.
+
+**Prediction:** it behaves like the old seed-0 base agent: trained kinds within 3 points of 99/93/98%,
+p.6 flag 15–45% (old: 30%), p.7 left 15–45% (old: 28%), under 10 moves outside on open mazes.
+
+**Result** (`runs/r11b/base_s0`, 500 attempts per test, 4.5 min on an A30):
+
+| Prediction | Result |
+|---|---|
+| trained kinds within 3 points of 99/93/98% | ✓ 99.4 / 94.0 / 97.6% |
+| p.6 flag 15–45% | ✓ 35.8% (old seed-0 agent: 30%) |
+| p.7 left 15–45% | ✓ 26.8% (old: 28%) |
+| under 10 moves outside on open mazes | ✓ 5.3 |
+
+**What this shows:** the seed-0 base agent from the round 11 code is typical, like the older one. It
+ships as `base`, with the seed-0 round 11 variants: `outside_costly` (`out_0.05_s0`), `outside_free`
+(`out_0_s0`) and `explore_bonus_big` (`new_0.05_s0`). All four share starting weights and training
+layouts and differ only in their rewards.
+
+## Round P1: the Part 1 agents (for shipping)
+Train what TEACHING.md steps 2–4 use, seed 0, on the cluster GPU (`scripts/part1.sbatch`): reward-free
+perception pretraining, then four 20k-attempt RL runs with the perception layers frozen: flag and escape
+tasks, each on pretrained and on random perception. Same settings as `reports/pretraining-transfer.md`,
+experiments 1–2, which ran on the desktop CPU.
+
+**Prediction** (from the transfer report's numbers):
+- Perception predicts unseen squares about 86% of the time on new mazes, the direction about 99%.
+- Flag, frozen pretrained: 60–80% on open mazes. Flag, frozen random: under 15% on open mazes.
+- Escape, frozen pretrained: about 97% on open mazes. Escape, frozen random: 55–75% on open mazes (a
+  random walker often stumbles out), and clearly below pretrained on weak-spot mazes.
