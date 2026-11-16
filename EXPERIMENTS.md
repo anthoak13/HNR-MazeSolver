@@ -904,3 +904,26 @@ everything else default (`sweeps/r12.txt`).
 - Outside free: uncertain. At full scale 2 of 3 seeds farmed; at 20k the default agent already wanders
   outside a lot, so the difference may be small. Predict moves outside above the same seed's default by
   ≥ 10 in at least 1 seed.
+
+**Result** (`runs/r12/`, 500 attempts per test):
+
+| Run (20k) | Open | Weak spot | Out and back | p.6 flag | Left p.7 | Moves outside, open | Score, open |
+|---|---|---|---|---|---|---|---|
+| default s0 / s1 / s2 | 88 / 91 / 88% | 65 / 77 / 75% | 53 / 1 / 3% | 7 / 1 / 3% | 41 / 8 / 12% | 14.8 / 0.4 / 1.1 | 4.29 / 4.56 / 4.35 |
+| new square +0.05 s0 / s1 / s2 | 91 / 94 / 90% | 44 / 51 / 47% | 76 / 74 / 74% | 2 / 1 / 1% | 100 / 98 / 100% | 52.8 / 45.8 / 51.3 | 7.17 / 7.21 / 7.04 |
+| outside free s0 / s1 / s2 | 86 / 90 / 89% | 46 / 52 / 73% | 76 / 68 / 7% | 2 / 2 / 6% | 96 / 59 / 16% | 47.0 / 19.7 / 2.7 | 4.42 / 4.56 / 4.44 |
+
+| Prediction | Result |
+|---|---|
+| default: open 85–95% | ✓ 88–91% |
+| default: moves outside 10–20, left p.7 30–55% | ✗ only seed 0 (14.8, 41%). Seeds 1–2 never learned to leave: 1–3% on out-and-back mazes, 0.4–1.1 moves outside |
+| +0.05: moves outside ≥ 30 in ≥ 2 of 3 seeds, above default in all 3 | ✓ all 3 (46–53), score 7.0–7.2 vs 4.3–4.6 |
+| outside free: ≥ 10 above default in ≥ 1 seed | ✓ 2 of 3 (s0 47 vs 15, s1 20 vs 0.4); s2 didn't farm |
+
+**What this shows:**
+- **The big exploration reward hacks reliably at 20k attempts:** every seed tours the outside, the score
+  jumps ~60%, and weak-spot success drops 20–30 points. It's safe as the live Part 4 demo.
+- **Farming free outside moves is hit or miss at 20k** (2 of 3 seeds, one weakly), as at full scale.
+- **At 20k the default agent's outside skill depends on the seed:** two of three never learned to leave
+  the maze at all. Students who change the seed may see quite different baselines.
+- Shipped as `default_20k`, `explore_20k` and `outside_free_20k` (seed 0) for loading on a CPU.
