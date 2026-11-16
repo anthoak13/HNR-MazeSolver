@@ -40,7 +40,7 @@ def test_breakout_stages_with_run_and_agent():
     for agent in (_run("flag"), mz.Agent(), None):
         out = mz.breakout_stages(agent, n=20)
         assert set(out) == {"left the maze", "broke in from outside", "reached the flag"}
-        assert all(0 <= v <= 1 for v in out.values())
+        assert all(v.endswith("%") and 0 <= float(v[:-1]) <= 100 for v in out.values())
 
 
 def test_list_pretrained_and_check_gpu():

@@ -119,15 +119,16 @@ def evaluate(agent, n=500, mazes=None, seed=12345, rewards=None, greedy=False, m
 
 
 def breakout_stages(agent, maze=None, n=500, seed=0):
-    """Out of ``n`` attempts on the enclosed test maze (or ``maze``), the share that left the maze,
-    broke back in from outside through a weak spot, and reached the flag (article p.6).
+    """Out of ``n`` attempts on the enclosed test maze (or ``maze``), the percentage that left the
+    maze, broke back in from outside through a weak spot, and reached the flag (article p.6).
+    Returns {stage: "36.2%"}; mazerl.rollout.breakout_stages gives the same as fractions.
 
     agent: a Run (its rewards and move limit are used), an Agent, or None for random moves.
     """
     agent, rewards, max_steps, _ = _unpack(agent)
     maze = scenario(maze) if isinstance(maze, str) else maze
-    return _rollout.breakout_stages(agent, maze, n=n, rewards=rewards, max_steps=max_steps,
-                                    seed=seed)
+    shares = _rollout.breakout_stages(agent, maze, n=n, rewards=rewards, max_steps=max_steps, seed=seed)
+    return {stage: f"{share:.1%}" for stage, share in shares.items()}
 
 
 def score_breakdown(agent, maze=None, seed=0, rewards=None, max_steps=None, task=None, plot=True):
