@@ -1,0 +1,9 @@
+default_20k_s0 --episodes 20000 --seed 0
+default_20k_s1 --episodes 20000 --seed 1
+default_20k_s2 --episodes 20000 --seed 2
+explore_20k_s0 --episodes 20000 --seed 0 --reward new_cell=0.05
+explore_20k_s1 --episodes 20000 --seed 1 --reward new_cell=0.05
+explore_20k_s2 --episodes 20000 --seed 2 --reward new_cell=0.05
+outside_free_20k_s0 --episodes 20000 --seed 0 --reward outside=0.0
+outside_free_20k_s1 --episodes 20000 --seed 1 --reward outside=0.0
+outside_free_20k_s2 --episodes 20000 --seed 2 --reward outside=0.0

@@ -889,3 +889,18 @@ playback; it draws the same random numbers in the same order, so the data should
 
 **Result:** ✓ identical to P1, to the last digit on every test. The vision weights and all four RL agents
 are bit-for-bit the same as P1's, so only `perception.pt` is replaced (now with read-outs).
+
+## Round 12: The Part 4 agents at 20k attempts (for CPU fallback, and does every seed hack?)
+Part 4 now has students train from scratch, live, at 20k attempts. Ship seed-0 copies so the notebook can
+load them on a CPU, and check across three seeds whether the hacking reliably appears at this length
+(round 7 tested only seed 0). Runs: default, new square +0.05, outside free; seeds 0–2; 20k attempts;
+everything else default (`sweeps/r12.txt`).
+
+**Prediction:**
+- Default: open 85–95%, moves outside on open mazes 10–20, leaves the p.7 maze 30–55% (round 7, seed 0:
+  88%, 14.8, 41%).
+- New square +0.05: moves outside on open mazes ≥ 30 in at least 2 of 3 seeds (round 7: 52.8), and more
+  than the same seed's default in all 3.
+- Outside free: uncertain. At full scale 2 of 3 seeds farmed; at 20k the default agent already wanders
+  outside a lot, so the difference may be small. Predict moves outside above the same seed's default by
+  ≥ 10 in at least 1 seed.
