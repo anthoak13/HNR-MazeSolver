@@ -123,7 +123,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     fig.patch.set_facecolor("white")
     when = f"after move {moves}" + (" (the attempt ended here)" if ended else "")
     goal = "escape: get out of the maze" if task == "escape" else "reach the flag"
-    fig.suptitle(f"What the network sees {when}   ·   task: {goal}", fontsize=13, fontweight="bold",
+    fig.suptitle(f"What the agent sees {when}   ·   task: {goal}", fontsize=13, fontweight="bold",
                  x=0.02, ha="left", color=INK)
 
     # ---- (a) the real maze -----------------------------------------------------------------
@@ -155,7 +155,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     ax.set_xlim(ext[0], ext[1])
     ax.set_ylim(ext[2], ext[3])
     _bare(ax)
-    ax.set_title("The real maze (the network never sees this)", fontsize=11, loc="left", color=INK)
+    ax.set_title("The real maze (the agent never sees this)", fontsize=11, loc="left", color=INK)
 
     # ---- (b) memory window -------------------------------------------------------------------
     ax = axes[1]
@@ -195,26 +195,30 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     ax.set_xlim(-0.5, CROP + 3.4)
     ax.set_ylim(CROP - 0.5, -0.5)
     _bare(ax)
-    ax.set_title("What the network gets: its 11×11 memory window + compass", fontsize=11,
+    ax.set_title("What the agent gets: its 11×11 memory window + compass", fontsize=11,
                  loc="left", color=INK)
 
-    # ---- one legend for the whole figure -------------------------------------------------------
-    handles = [Line2D([], [], marker="o", ls="", color=RED, ms=8, label="the agent"),
-               Line2D([], [], marker="o", ls="", mfc="white", mec=RED, ms=8, label="where it started"),
-               Line2D([], [], color=RED, alpha=0.55, lw=2.5, label="its path so far"),
-               Patch(fc="none", ec=INK, lw=2, label="the 11×11 window it gets"),
-               Patch(fc=SEE_C, alpha=0.3, ec=SEE_C, ls="--", label="what it can see now (5×5)")]
-    handles += [Patch(fc=MEMORY[k][0], ec="#bbbbbb", label=MEMORY[k][1])
-                for k in (UNSEEN, M_FLOOR, M_OUTSIDE, M_WALL, M_EDGE)]
-    handles.append(Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)"))
-    if task != "escape" or (memory == M_FLAG).any():
-        handles.append(Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="the flag"))
-    handles += [Line2D([], [], marker="o", ls="", color=INK_2, ms=5, label="has stood here"),
-                Line2D([], [], marker="X", ls="", color=RED, ms=8, mew=0, label="bumped this wall; it held")]
-    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=9,
-               handlelength=1.3, columnspacing=1.4, bbox_to_anchor=(0.5, 0.0))
+    # ---- legends: one under each panel --------------------------------------------------------
+    kw = dict(loc="upper center", bbox_to_anchor=(0.5, -0.03), frameon=False, fontsize=9,
+              title_fontsize=9.5, handlelength=1.3, columnspacing=1.4, alignment="left")
+    real = [Line2D([], [], marker="o", ls="", color=RED, ms=8, label="the agent"),
+            Line2D([], [], marker="o", ls="", mfc="white", mec=RED, ms=8, label="where it started"),
+            Line2D([], [], color=RED, alpha=0.55, lw=2.5, label="its path so far"),
+            Patch(fc="none", ec=INK, lw=2, label="the 11×11 window it gets"),
+            Patch(fc=SEE_C, alpha=0.3, ec=SEE_C, ls="--", label="what it can see now (5×5)"),
+            Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)")]
+    axes[0].legend(handles=real, ncol=2, title="The real maze", **kw)
+    square = lambda code, label: Patch(fc=MEMORY[code][0], ec="#bbbbbb", label=label)
+    layers = [square(UNSEEN, "not seen"), square(M_FLOOR, "open floor"), square(M_OUTSIDE, "outside"),
+              square(M_WALL, "wall"),
+              Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="flag"),
+              square(M_EDGE, "map edge"),
+              Line2D([], [], marker="X", ls="", color=RED, ms=8, mew=0, label="have prodded (it held)"),
+              Line2D([], [], marker="o", ls="", color=INK_2, ms=5, label="have stood"),
+              Line2D([], [], color=SEE_C, lw=1.8, ls=(0, (3, 2)), label="can see now")]
+    axes[1].legend(handles=layers, ncol=3, title="Memory: 9 layers", **kw)
 
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.2, wspace=0.06)
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.24, wspace=0.06)
     plt.close(fig)       # Jupyter shows the returned figure; closing stops a second copy
     return fig
 
