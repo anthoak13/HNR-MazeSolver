@@ -119,7 +119,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     pr, pc = (int(v) - PAD for v in env.pos[0])   # agent, arena coordinates
     grid = env.grid[0].cpu().numpy()                # true layout now (broken weak spots are floor)
 
-    fig, axes = plt.subplots(1, 3, figsize=(11, 5.6), gridspec_kw={"width_ratios": [1.25, 1, 0.55]})
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5.6), gridspec_kw={"width_ratios": [1.25, 1.3]})
     fig.patch.set_facecolor("white")
     when = f"after move {moves}" + (" (the attempt ended here)" if ended else "")
     goal = "escape: get out of the maze" if task == "escape" else "reach the flag"
@@ -164,33 +164,39 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     _cells(ax, CROP, CROP, color="#bbbbbb", lw=0.4)
     for r, c in zip(*np.nonzero(memory == M_FLAG)):
         _flag(ax, r, c)
+    for (x0, y0), (x1, y1) in _outline(now):                  # layer 8: what it can see now
+        ax.plot([x0, x1], [y0, y1], color=SEE_C, lw=1.8, ls=(0, (3, 2)), zorder=8)
+    stood_r, stood_c = np.nonzero(stood & ~((np.arange(CROP)[:, None] == PAD) & (np.arange(CROP) == PAD)))
+    ax.scatter(stood_c, stood_r, s=22, color=INK_2, zorder=6)  # layer 7: stood here
+    firm_r, firm_c = np.nonzero(firm)
+    ax.scatter(firm_c, firm_r, s=80, marker="X", color=RED, linewidths=0, zorder=6)  # layer 9
     ax.add_patch(Circle((PAD, PAD), 0.3, fc=RED, ec="none", zorder=7))
     ax.add_patch(Rectangle((-0.5, -0.5), CROP, CROP, fill=False, ec=INK, lw=2, zorder=6))
-    _bare(ax)
-    ax.set_title("What it remembers of its 11×11 window", fontsize=11, loc="left", color=INK)
 
-    # ---- (c) compass ---------------------------------------------------------------------------
-    ax = axes[2]
-    ax.set_aspect("equal")
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.9, 1.5)
-    _bare(ax)
-    ax.add_patch(Circle((0, 0), 1, fc="#fafafa", ec="#cccccc", lw=1))
+    # the compass: a small dial beside the window (the network's other input)
+    cx, cy, rad = CROP + 1.6, 2.0, 1.5
+    ax.add_patch(Circle((cx, cy), rad, fc="#fafafa", ec="#cccccc", lw=1, zorder=5))
     for k in range(N_COMPASS):
-        a = k * np.pi / 4
-        ax.plot([0.88 * np.cos(a), np.cos(a)], [0.88 * np.sin(a), np.sin(a)], color="#bbbbbb", lw=1)
+        a = k * np.pi / 4                       # image y runs downward, so "up" is -y
+        ax.plot([cx + 0.85 * rad * np.cos(a), cx + rad * np.cos(a)],
+                [cy - 0.85 * rad * np.sin(a), cy - rad * np.sin(a)], color="#bbbbbb", lw=1, zorder=6)
     if comp.sum() > 0:
         k = int(comp.argmax())
-        ax.add_patch(Circle((0, 0), 0.07, fc=INK, zorder=6))
         a = k * np.pi / 4
-        ax.add_patch(FancyArrowPatch((0, 0), (0.85 * np.cos(a), 0.85 * np.sin(a)), arrowstyle="-|>",
-                                     mutation_scale=22, lw=3, color=RED, zorder=5))
-        note = f"The flag is {DIRECTIONS[k]}.\nOne of 8 directions,\nno distance."
+        ax.add_patch(FancyArrowPatch((cx, cy), (cx + 0.8 * rad * np.cos(a), cy - 0.8 * rad * np.sin(a)),
+                                     arrowstyle="-|>", mutation_scale=16, lw=2.5, color=RED, zorder=7))
+        ax.add_patch(Circle((cx, cy), 0.12, fc=INK, zorder=8))
+        note = f"compass:\nflag is {DIRECTIONS[k]}"
     else:
-        ax.text(0, 0, "none", ha="center", va="center", fontsize=12, color=INK_2, fontweight="bold")
-        note = "No compass in the\nescape task." if task == "escape" else "The compass is off."
-    ax.text(0, -1.2, note, ha="center", va="top", fontsize=9, color=INK)
-    ax.set_title("Compass", fontsize=11, loc="left", color=INK)
+        ax.text(cx, cy, "off", ha="center", va="center", fontsize=10, color=INK_2, fontweight="bold",
+                zorder=7)
+        note = "compass:\nnone (escape)" if task == "escape" else "compass:\noff"
+    ax.text(cx, cy + rad + 0.4, note, ha="center", va="top", fontsize=9, color=INK)
+    ax.set_xlim(-0.5, CROP + 3.4)
+    ax.set_ylim(CROP - 0.5, -0.5)
+    _bare(ax)
+    ax.set_title("What the network gets: its 11×11 memory window + compass", fontsize=11,
+                 loc="left", color=INK)
 
     # ---- one legend for the whole figure -------------------------------------------------------
     handles = [Line2D([], [], marker="o", ls="", color=RED, ms=8, label="the agent"),
@@ -203,11 +209,42 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     handles.append(Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)"))
     if task != "escape" or (memory == M_FLAG).any():
         handles.append(Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="the flag"))
+    handles += [Line2D([], [], marker="o", ls="", color=INK_2, ms=5, label="has stood here"),
+                Line2D([], [], marker="X", ls="", color=RED, ms=8, mew=0, label="bumped this wall; it held")]
     fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=9,
                handlelength=1.3, columnspacing=1.4, bbox_to_anchor=(0.5, 0.0))
 
     fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.2, wspace=0.06)
     return fig
+
+
+def _outline(mask):
+    """Edges between squares in ``mask`` and squares outside it, merged into straight runs so the
+    dashes flow along each side. Returns [((x0, y0), (x1, y1)), ...] in image coordinates."""
+    n_r, n_c = mask.shape
+    inside = lambda r, c: 0 <= r < n_r and 0 <= c < n_c and bool(mask[r, c])
+    runs = []
+    for r in range(n_r + 1):                    # horizontal edges, on the line y = r - 0.5
+        c = 0
+        while c < n_c:
+            if inside(r - 1, c) != inside(r, c):
+                start = c
+                while c < n_c and inside(r - 1, c) != inside(r, c):
+                    c += 1
+                runs.append(((start - 0.5, r - 0.5), (c - 0.5, r - 0.5)))
+            else:
+                c += 1
+    for c in range(n_c + 1):                    # vertical edges, on the line x = c - 0.5
+        r = 0
+        while r < n_r:
+            if inside(r, c - 1) != inside(r, c):
+                start = r
+                while r < n_r and inside(r, c - 1) != inside(r, c):
+                    r += 1
+                runs.append(((c - 0.5, start - 0.5), (c - 0.5, r - 0.5)))
+            else:
+                r += 1
+    return runs
 
 
 def _flag(ax, r, c):

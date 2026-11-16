@@ -30,7 +30,7 @@ def test_show_observation_returns_figure(kwargs):
         kwargs = {**kwargs, "agent": mz.Agent()}
     fig = show_observation(**kwargs)
     assert isinstance(fig, plt.Figure)
-    assert len(fig.axes) == 3
+    assert len(fig.axes) == 2
     plt.close(fig)
 
 
@@ -123,3 +123,14 @@ def test_player_flag_episode_unchanged(tmp_path):
         assert d["flags"] == 1
         assert d["labels"] == ["OUTSIDE", "GOAL", "AGENT"]
         assert d["callout"] == "Flag +5"
+
+
+def test_outline_traces_an_irregular_visible_area():
+    from mazerl.observation import _outline
+    mask = np.zeros((5, 5), dtype=bool)
+    mask[1:4, 1:4] = True
+    mask[1, 3] = False                       # an L-shape: a notch in one corner
+    runs = _outline(mask)
+    length = sum(abs(x1 - x0) + abs(y1 - y0) for (x0, y0), (x1, y1) in runs)
+    assert length == 12                      # perimeter of a 3x3 square, unchanged by a corner notch
+    assert all(x0 == x1 or y0 == y1 for (x0, y0), (x1, y1) in runs)
