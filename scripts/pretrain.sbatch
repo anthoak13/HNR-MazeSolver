@@ -9,7 +9,7 @@
 # Array index -> run name follows `python scripts/pretrain.py --list` (0 = base).
 #
 #SBATCH --job-name=mazerl-pretrain
-#SBATCH --array=0-6
+#SBATCH --array=0-3
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=8G

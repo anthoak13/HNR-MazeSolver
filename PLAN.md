@@ -186,20 +186,22 @@ for definitions and debugging only.
 ---
 
 ## 6. Pretrained agents (shipped in `mazerl/pretrained/`)
-- **`base`:** the article's setup, at full scale. It saves snapshots at 1k, 5k, 20k, 60k and 126k attempts
-  for the "agents at different stages of training" view.
-- **Variants,** each differing from `base` in one way:
+All are training seed 0, so the Part 2 agents share starting weights and training layouts and differ only
+in their rewards (`EXPERIMENTS.md`, rounds 11, 11b and P1).
 
-  | Variant | Change |
-  |---|---|
-  | `outside_free` | outside 0 |
-  | `outside_costly` | outside −0.1 |
-  | `explore_bonus_big` | exploration +0.1 |
-  | `explore_bonus_none` | exploration 0 |
-  | `probing_costly` | wall −0.1 |
-  | `no_bypass_filter` | excluded attempts are kept |
+**Part 2,** full scale (126k attempts), with snapshots at 1k, 5k, 20k, 60k and 126k attempts. Retrain
+with `scripts/pretrain.py` / `scripts/pretrain.sbatch`.
 
-These get trained once the base settings are final (§9).
+| Name | Change from `base` | Source run |
+|---|---|---|
+| `base` | none | `runs/r11b/base_s0` |
+| `outside_costly` | outside −0.05 | `runs/r11/out_0.05_s0` |
+| `outside_free` | outside 0 | `runs/r11/out_0_s0` |
+| `explore_bonus_big` | exploration +0.05 | `runs/r11/new_0.05_s0` |
+
+**Part 1,** from `scripts/part1.sbatch` (`runs/part1/`): `perception` (reward-free pretraining), and four
+20k-attempt RL runs with the perception layers frozen, with snapshots at 1k, 2k, 5k, 10k and 20k:
+`flag_frozen_pretrained`, `flag_frozen_random`, `escape_frozen_pretrained`, `escape_frozen_random`.
 
 ---
 
@@ -318,7 +320,7 @@ different jobs.
   - **If not:** at most a short discussion of how LLMs are built.
 
 ## 11. Risks
-- **Success on the p.6 maze varies a lot between training runs** (35–75% for the same settings), so shipped agents
+- **Success on the p.6 maze varies a lot between training runs** (16–75% for the same settings), so shipped agents
   are picked as typical, and the notebook says so. The article shows one replay, so how
   often it happened for them is unknown.
 - **A2C can be unstable.** Mitigations: fixed seeds for shipped agents, and comparing several seeds before

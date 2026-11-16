@@ -23,15 +23,14 @@ from mazerl.rollout import standard_report
 OUT = Path(__file__).resolve().parents[1] / "mazerl" / "pretrained"
 STAGES = (1_000, 5_000, 20_000, 60_000)
 
-# name -> (reward changes, settings changes); each variant differs from "base" in one way
+# name -> (reward changes, settings changes); each variant differs from "base" only in its rewards.
+# The shipped agents are seed 0 (EXPERIMENTS.md, rounds 11 and 11b), so they share starting weights and
+# training layouts.
 RUNS = {
     "base": ({}, {}),
+    "outside_costly": ({"outside": -0.05}, {}),
     "outside_free": ({"outside": 0.0}, {}),
-    "outside_costly": ({"outside": -0.1}, {}),
-    "explore_bonus_big": ({"new_cell": 0.1}, {}),
-    "explore_bonus_none": ({"new_cell": 0.0}, {}),
-    "probing_costly": ({"probe": -0.1}, {}),
-    "no_bypass_filter": ({}, {"exclude_bypass": False}),
+    "explore_bonus_big": ({"new_cell": 0.05}, {}),
 }
 
 

@@ -84,7 +84,8 @@ explains what it sees.
      are free, about as much as a reward ten times larger. Whether there's a net-positive loop matters, not
      the size of the reward.
    - The farming agent's score goes up while it takes about 1.5× as long to finish weak-spot mazes, and it
-     almost never reaches the p.6 flag.
+     almost never reaches the p.6 flag (with the large exploration reward; the agent farming free
+     outside moves still does in 29% of attempts).
    - Success on ordinary mazes barely changes under any reward tested. The rewards shape the route more
      than the result.
 8. **Discussion.**
@@ -98,8 +99,8 @@ explains what it sees.
 - **Hardware:** a Colab T4. A live training run takes about 2–5 minutes.
 - **Reaching the p.6 flag needs a fully trained agent;** it rarely happens after a short live run. Use the
   shipped agents for it.
-- **Results vary between training runs:** the same settings give an agent that reaches the p.6 flag 35% of
-  the time, or 75%. Whether an agent discovers a loophole is partly luck too: in each farming setting, one
+- **Results vary between training runs:** the same settings give agents that reach the p.6 flag anywhere from
+  16% to 75% of the time (four seeds of the default). Whether an agent discovers a loophole is partly luck too: in each farming setting, one
   seed in three never found it. That's worth telling students: training is not deterministic.
 - **The maze rules are our simplified version** of the article's model, and the notebook says which parts
   are ours.

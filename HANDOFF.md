@@ -77,5 +77,5 @@ The deliverables list at the end of `TEACHING.md`:
   submissions; ask them if one is blocked.
 - **Training anneals the learning rate to zero by the end of the budget,** so a run levels off at the end
   whether or not it has really converged. Check the learning curve itself.
-- **Success on the p.6 maze varies a lot between training seeds** (35–75% for the same settings), while re-measuring
+- **Success on the p.6 maze varies a lot between training seeds** (16–75% for the same settings), while re-measuring
   one model varies by about 1 point. Use several seeds when comparing settings.

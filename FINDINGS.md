@@ -36,7 +36,7 @@ as LLMs. The evidence behind each statement is in `EXPERIMENTS.md`.
   | Outside and back in | 98% |
 
 - **On the article's p.6 maze, where the flag is walled off from the start, it breaks out to finish.** It
-  leaves the maze, breaks back in through weak spots, and reaches the flag in 35–75% of attempts.
+  leaves the maze, breaks back in through weak spots, and reaches the flag in 16–75% of attempts, depending on the training seed.
   - No training layout requires that sequence. It combines two separately learned skills: leaving and
     re-entering the maze, and breaking through weak spots.
   - Both skills are necessary. Training without the layouts that teach either one drops the success rate
@@ -67,7 +67,8 @@ three seeds each.
   - So the size of the reward matters less than whether it opens a net-positive loop. The agent finds
     the loop and exploits it.
   - Not every seed finds it: in each of these two settings, one seed of three didn't.
-  - Farming agents almost never reach the p.6 flag (0–2%).
+  - Agents farming the large exploration reward almost never reach the p.6 flag (0–2%). The one
+    farming with outside moves free still does in 29% of attempts, so farming doesn't rule it out.
 - **Excluding attempts that end outside doesn't catch the hacking.** The hacking agent always returns
   inside before the attempt ends. A check on outcomes misses an agent that games the process.
 
@@ -77,8 +78,8 @@ three seeds each.
   speed, not the behavior learned. All work uses the article's size and its 126,000 attempts.
 
 ## Variability
-- **Identical settings give quite different agents.** Two seeds broke out on the p.6 maze in 36% and 74%
-  of attempts. Re-measuring one agent varies by about 1 percentage point on the trained kinds and by up
+- **Identical settings give quite different agents.** Four seeds of the default broke out on the p.6 maze in
+  16%, 30%, 36% and 75% of attempts. Re-measuring one agent varies by about 1 percentage point on the trained kinds and by up
   to 6 on the p.6 maze. Comparisons between settings need several seeds, and the p.6 rate is too noisy to
   rank most reward settings.
 - **The rules are a simplification** of the article's model. The flag reward and the outside penalty come
