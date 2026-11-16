@@ -68,13 +68,14 @@ def _true_window(env):
     return TRUE_CLASS.to(cells.device)[cells]
 
 
-def collect(bank, n_samples, n_envs=256, explore=0.3, max_steps=200, seed=0, device="cpu"):
+def collect(bank, n_samples, n_envs=256, explore=0.3, max_steps=200, seed=0, device="cpu", progress=False):
     """Observations from agents that mostly head for unexplored ground (and move at random with
     probability ``explore``), with the prediction targets. No rewards are involved."""
     env = MazeEnv(bank, n_envs, max_steps=max_steps, device=device, seed=seed)
     gen = torch.Generator(device="cpu").manual_seed(seed)
     keep = {k: [] for k in ("obs", "comp", "truth", "unseen", "frontier")}
     n = 0
+    bar = _bar(n_samples, "snapshot") if progress else None
     while n < n_samples:
         obs, comp = env.observe()
         front = frontier_direction(env)
@@ -84,7 +85,11 @@ def collect(bank, n_samples, n_envs=256, explore=0.3, max_steps=200, seed=0, dev
         keep["unseen"].append((obs[:, UNSEEN] > 0).cpu())
         keep["frontier"].append(front.to(torch.int8).cpu())
         n += n_envs
+        if bar:
+            bar.update(min(n_envs, n_samples - (n - n_envs)))
         env.step(explorer_moves(env, gen, explore, front))
+    if bar:
+        bar.close()
     return {k: torch.cat(v)[:n_samples] for k, v in keep.items()}
 
 
@@ -164,17 +169,23 @@ def pretrain_perception(steps=3000, batch=256, n_samples=150_000, lr=1e-3, seed=
     t0 = time.time()
     torch.manual_seed(seed)
     bank = bank or training_bank()
-    data = collect(bank, n_samples, seed=seed, device=device)
+    if progress:
+        print(f"1. The explorer walks the training mazes; saving {n_samples:,} snapshots...", flush=True)
+    data = collect(bank, n_samples, seed=seed, device=device, progress=progress)
+    if progress:
+        print("   ...and 20,000 more from 300 new mazes, kept aside to test it.", flush=True)
     test_bank = MazeBank.generate(300, seed=10_000 + seed)        # layouts it never trains on
     test = collect(test_bank, 20_000, seed=seed + 1, device=device)
     t_data = time.time() - t0
+    if progress:
+        print(f"2. The network practices the quiz: {steps:,} rounds of {batch} snapshots.", flush=True)
 
     agent, heads = Agent().to(device), PredictionHeads().to(device)
     params = [p for n, p in agent.named_parameters() if n.startswith(("vision.", "reasoning.0."))]
     opt = torch.optim.Adam(params + list(heads.parameters()), lr=lr)
     history = {"step": [], "loss": [], "map_acc": [], "frontier_acc": []}
     gen = torch.Generator().manual_seed(seed)
-    bar = _bar(steps) if progress else None
+    bar = _bar(steps, "round") if progress else None
     for step in range(1, steps + 1):
         idx = torch.randint(0, len(data["obs"]), (batch,), generator=gen)
         loss, map_acc, front_acc = _losses(agent, heads, {k: v[idx] for k, v in data.items()}, device)
@@ -184,6 +195,8 @@ def pretrain_perception(steps=3000, batch=256, n_samples=150_000, lr=1e-3, seed=
         if step % log_every == 0 or step == steps:
             for k, v in zip(("step", "loss", "map_acc", "frontier_acc"), (step, loss.item(), map_acc, front_acc)):
                 history[k].append(v)
+            if bar:
+                bar.set_postfix_str(f"hidden squares right: {map_acc:.0%}")
         if bar:
             bar.update(1)
     if bar:
@@ -197,7 +210,12 @@ def pretrain_perception(steps=3000, batch=256, n_samples=150_000, lr=1e-3, seed=
               "frontier_acc": sum(f for _, f in accs) / len(accs),
               "map_acc_majority_baseline": majority, "frontier_acc_chance": 0.25,
               "data_seconds": t_data}
-    return Pretrained(agent.cpu().eval(), history, result, time.time() - t0, heads.cpu().eval())
+    seconds = time.time() - t0
+    if progress:
+        print(f"Done in {seconds:.0f} s. On the 300 new mazes it guesses hidden squares right "
+              f"{result['map_acc_unseen']:.0%} of the time (always guessing the most common kind: "
+              f"{majority:.0%}).", flush=True)
+    return Pretrained(agent.cpu().eval(), history, result, seconds, heads.cpu().eval())
 
 
 def untrained_perception(seed=0, device=None):
@@ -221,9 +239,9 @@ def _majority_baseline(data, test):
     return float((test["truth"].long()[test["unseen"]] == counts.argmax()).float().mean())
 
 
-def _bar(total):
+def _bar(total, unit="step"):
     try:
         from tqdm.auto import tqdm
-        return tqdm(total=total, unit="step")
+        return tqdm(total=total, unit=unit)
     except ImportError:
         return None
