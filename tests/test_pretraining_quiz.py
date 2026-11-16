@@ -54,3 +54,10 @@ def test_quiz_figure(tiny, maze):
     fig = mz.show_pretraining_quiz(tiny, maze=maze, step=15, seed=0)
     assert isinstance(fig, plt.Figure) and len(fig.axes) == 3
     assert "right" in fig.axes[2].get_title(loc="left")
+
+
+def test_untrained_perception_scores_near_chance():
+    u = mz.untrained_perception(device="cpu")
+    assert u.heads is not None
+    assert 0.1 < u.test["map_acc_unseen"] < 0.45          # 4 choices: chance is about 25%
+    assert isinstance(mz.show_pretraining_quiz(u, step=10), plt.Figure)

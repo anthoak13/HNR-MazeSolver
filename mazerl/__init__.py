@@ -23,7 +23,7 @@ from .agent import Agent
 from .a2c import train, Settings, Run
 from .rollout import record, summarize, points_by_source, evaluate as _evaluate
 from . import rollout as _rollout
-from .perception import pretrain_perception, Pretrained
+from .perception import pretrain_perception, untrained_perception, Pretrained
 from .viz import plot_training
 from . import player
 from .observation import show_observation, show_pretraining_quiz as _show_pretraining_quiz

@@ -200,6 +200,22 @@ def pretrain_perception(steps=3000, batch=256, n_samples=150_000, lr=1e-3, seed=
     return Pretrained(agent.cpu().eval(), history, result, time.time() - t0, heads.cpu().eval())
 
 
+def untrained_perception(seed=0, device=None):
+    """A Pretrained with random weights and no pretraining, for comparison. Its ``test`` scores come
+    from the same quiz on the same unseen mazes as pretrain_perception(seed=0) uses."""
+    device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    torch.manual_seed(seed)
+    agent, heads = Agent().to(device).eval(), PredictionHeads().to(device).eval()
+    test = collect(MazeBank.generate(300, seed=10_000), 20_000, seed=1, device=device)
+    with torch.no_grad():
+        accs = [_losses(agent, heads, {k: v[i:i + 2000] for k, v in test.items()}, device)[1:]
+                for i in range(0, len(test["obs"]), 2000)]
+    result = {"map_acc_unseen": sum(a for a, _ in accs) / len(accs),
+              "frontier_acc": sum(f for _, f in accs) / len(accs),
+              "map_acc_majority_baseline": _majority_baseline(test, test), "frontier_acc_chance": 0.25}
+    return Pretrained(agent.cpu(), {}, result, 0.0, heads.cpu())
+
+
 def _majority_baseline(data, test):
     counts = torch.bincount(data["truth"].long()[data["unseen"]], minlength=N_CLASSES)
     return float((test["truth"].long()[test["unseen"]] == counts.argmax()).float().mean())
