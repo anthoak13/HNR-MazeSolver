@@ -26,7 +26,7 @@ from . import rollout as _rollout
 from .perception import pretrain_perception, Pretrained
 from .viz import plot_training
 from . import player
-from .observation import show_observation
+from .observation import show_observation, show_pretraining_quiz as _show_pretraining_quiz
 
 try:
     __version__ = _version("mazerl")
@@ -190,6 +190,15 @@ def load_pretrained(name="base"):
 def load_perception(name="perception"):
     """Vision pretrained ahead of time without rewards (a Pretrained), shipped with the package."""
     return Pretrained.load(_pretrained_path(name, "perception"))
+
+
+def show_pretraining_quiz(perception=None, maze=None, step=20, seed=0):
+    """One question from the pretraining quiz (Part 1, Step 2), at move ``step`` of the scripted
+    explorer's walk: what the network is given, the answers, and the network's guesses.
+
+    perception: a Pretrained; None loads the shipped one (``load_perception()``).
+    """
+    return _show_pretraining_quiz(perception or load_perception(), maze=maze, step=step, seed=seed)
 
 
 def check_gpu():

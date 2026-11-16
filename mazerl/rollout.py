@@ -9,7 +9,8 @@ from .maze import Maze, MazeBank, FLOOR, WEAK, OUTSIDE, BAND, MAZE, path_length
 def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, seed=0, task="flag"):
     """Play ``n_agents`` independent attempts on each maze and return one episode dict per maze.
 
-    agent: a trained Agent, or None for an untrained agent that moves at random.
+    agent: a trained Agent, None for an untrained agent that moves at random, or "explorer" for the
+        scripted explorer that makes the pretraining data (mazerl.perception.explorer_moves).
     The dicts follow the player's data contract (grid, start, flag, agents[path, score, events]).
     Each agent also gets "return" (the attempt's total points) and "env_return" (the same total as
     the environment tallied it, for checking).
@@ -21,7 +22,8 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
     ids = np.repeat(np.arange(len(mazes)), n_agents)
     env = MazeEnv(bank, len(ids), rewards, max_steps, seed=seed, auto_reset=False, maze_ids=ids, task=task)
     gen = torch.Generator().manual_seed(seed)
-    if agent is not None:
+    explorer = isinstance(agent, str) and agent == "explorer"
+    if agent is not None and not explorer:
         agent = agent.cpu().eval()
 
     n = len(ids)
@@ -34,6 +36,9 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
     for t in range(1, max_steps + 1):
         if agent is None:
             action = torch.randint(0, 4, (n,), generator=gen)
+        elif explorer:
+            from .perception import explorer_moves
+            action = explorer_moves(env, gen)
         else:
             with torch.no_grad():
                 obs, comp = env.observe()

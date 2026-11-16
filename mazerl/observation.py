@@ -1,10 +1,11 @@
 """One picture of exactly what the network receives at one moment of an attempt (TEACHING.md Part 1,
 step 1, "What the agent sees").
 
-The memory window and the compass are read straight from the tensors ``MazeEnv.observe()`` hands the
-network, so the figure cannot drift from what the agent really gets. The network also gets three more
-layers on the same window (squares stood on, squares visible now, walls bumped that held firm); they
-aren't drawn, to keep the picture readable.
+The memory window (all 9 layers) and the compass are read straight from the tensors
+``MazeEnv.observe()`` hands the network, so the figure cannot drift from what the agent really gets.
+
+``show_pretraining_quiz`` uses the same window drawing for Step 2: one moment of the scripted explorer's
+walk, the answer key for the hidden squares, and the pretrained network's guesses.
 """
 import numpy as np
 import torch
@@ -60,7 +61,8 @@ def _run_to(agent, maze, step, seed, task, rewards, max_steps):
     env = MazeEnv(MazeBank.from_mazes([maze]), 1, rewards, max_steps, seed=seed, auto_reset=False,
                   maze_ids=[0], task=task)
     gen = torch.Generator().manual_seed(seed)
-    if agent is not None:
+    explorer = isinstance(agent, str) and agent == "explorer"
+    if agent is not None and not explorer:
         agent = agent.cpu().eval()
     path = [env.pos[0].tolist()]
     moves, ended = 0, False
@@ -69,6 +71,9 @@ def _run_to(agent, maze, step, seed, task, rewards, max_steps):
         while moves < min(step, max_steps):
             if agent is None:
                 action = torch.randint(0, 4, (1,), generator=gen)
+            elif explorer:
+                from .perception import explorer_moves
+                action = explorer_moves(env, gen)
             else:
                 with torch.no_grad():
                     obs, comp = env.observe()
@@ -159,19 +164,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
 
     # ---- (b) memory window -------------------------------------------------------------------
     ax = axes[1]
-    shown = np.where(memory == M_FLAG, M_FLOOR, memory)       # the flag is drawn as a symbol instead
-    ax.imshow(shown, cmap=_MEM_CMAP, vmin=-0.5, vmax=N_MEMORY - 0.5, interpolation="nearest")
-    _cells(ax, CROP, CROP, color="#bbbbbb", lw=0.4)
-    for r, c in zip(*np.nonzero(memory == M_FLAG)):
-        _flag(ax, r, c)
-    for (x0, y0), (x1, y1) in _outline(now):                  # layer 8: what it can see now
-        ax.plot([x0, x1], [y0, y1], color=SEE_C, lw=1.8, ls=(0, (3, 2)), zorder=8)
-    stood_r, stood_c = np.nonzero(stood & ~((np.arange(CROP)[:, None] == PAD) & (np.arange(CROP) == PAD)))
-    ax.scatter(stood_c, stood_r, s=22, color=INK_2, zorder=6)  # layer 7: stood here
-    firm_r, firm_c = np.nonzero(firm)
-    ax.scatter(firm_c, firm_r, s=80, marker="X", color=RED, linewidths=0, zorder=6)  # layer 9
-    ax.add_patch(Circle((PAD, PAD), 0.3, fc=RED, ec="none", zorder=7))
-    ax.add_patch(Rectangle((-0.5, -0.5), CROP, CROP, fill=False, ec=INK, lw=2, zorder=6))
+    _draw_memory(ax, memory, now, stood, firm)
 
     # the compass: a small dial beside the window (the network's other input)
     cx, cy, rad = CROP + 1.6, 2.0, 1.5
@@ -208,19 +201,49 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
             Patch(fc="none", ec=SEE_C, lw=1.2, ls="--", label="maximum vision range (5×5)"),
             Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)")]
     axes[0].legend(handles=real, ncol=2, title="The real maze", **kw)
-    square = lambda code, label: Patch(fc=MEMORY[code][0], ec="#bbbbbb", label=label)
-    layers = [square(UNSEEN, "not seen"), square(M_FLOOR, "open floor"), square(M_OUTSIDE, "outside"),
-              square(M_WALL, "wall"),
-              Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="flag"),
-              square(M_EDGE, "map edge"),
-              Line2D([], [], marker="X", ls="", color=RED, ms=8, mew=0, label="have prodded (it held)"),
-              Line2D([], [], marker="o", ls="", color=INK_2, ms=5, label="have stood"),
-              Line2D([], [], color=SEE_C, lw=1.8, ls=(0, (3, 2)), label="can see now")]
-    axes[1].legend(handles=layers, ncol=3, title="Memory: 9 layers", **kw)
+    axes[1].legend(handles=_memory_handles(), ncol=3, title="Memory: 9 layers", **kw)
 
     fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.24, wspace=0.06)
     plt.close(fig)       # Jupyter shows the returned figure; closing stops a second copy
     return fig
+
+
+def _draw_memory(ax, memory, now=None, stood=None, firm=None):
+    """An 11 x 11 window colored by memory code, with the flag symbol, the three extra layers (when
+    given) and the agent in the middle. Shared by show_observation and show_pretraining_quiz."""
+    shown = np.where(memory == M_FLAG, M_FLOOR, memory)       # the flag is drawn as a symbol instead
+    ax.imshow(shown, cmap=_MEM_CMAP, vmin=-0.5, vmax=N_MEMORY - 0.5, interpolation="nearest")
+    _cells(ax, CROP, CROP, color="#bbbbbb", lw=0.4)
+    for r, c in zip(*np.nonzero(memory == M_FLAG)):
+        _flag(ax, r, c)
+    if now is not None:
+        for (x0, y0), (x1, y1) in _outline(now):              # layer 8: what it can see now
+            ax.plot([x0, x1], [y0, y1], color=SEE_C, lw=1.8, ls=(0, (3, 2)), zorder=8)
+    if stood is not None:
+        centre = (np.arange(CROP)[:, None] == PAD) & (np.arange(CROP) == PAD)
+        stood_r, stood_c = np.nonzero(stood & ~centre)
+        ax.scatter(stood_c, stood_r, s=22, color=INK_2, zorder=6)   # layer 7: stood here
+    if firm is not None:
+        firm_r, firm_c = np.nonzero(firm)
+        ax.scatter(firm_c, firm_r, s=80, marker="X", color=RED, linewidths=0, zorder=6)  # layer 9
+    ax.add_patch(Circle((PAD, PAD), 0.3, fc=RED, ec="none", zorder=7))
+    ax.add_patch(Rectangle((-0.5, -0.5), CROP, CROP, fill=False, ec=INK, lw=2, zorder=6))
+    ax.set_xlim(-0.5, CROP - 0.5)
+    ax.set_ylim(CROP - 0.5, -0.5)
+    _bare(ax)
+
+
+def _memory_handles(extra=True):
+    square = lambda code, label: Patch(fc=MEMORY[code][0], ec="#bbbbbb", label=label)
+    handles = [square(UNSEEN, "not seen"), square(M_FLOOR, "open floor"), square(M_OUTSIDE, "outside"),
+               square(M_WALL, "wall"),
+               Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="flag"),
+               square(M_EDGE, "map edge")]
+    if extra:
+        handles += [Line2D([], [], marker="X", ls="", color=RED, ms=8, mew=0, label="have prodded (it held)"),
+                    Line2D([], [], marker="o", ls="", color=INK_2, ms=5, label="have stood"),
+                    Line2D([], [], color=SEE_C, lw=1.8, ls=(0, (3, 2)), label="can see now")]
+    return handles
 
 
 def _outline(mask):
@@ -262,3 +285,66 @@ def _flag(ax, r, c):
 def _hex(h):
     h = h.lstrip("#")
     return [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+
+
+# prediction class (perception.CLASS_NAMES: open, outside, wall, edge) -> memory code, for coloring
+_CLASS_TO_MEMORY = np.array([M_FLOOR, M_OUTSIDE, M_WALL, M_EDGE])
+
+
+def show_pretraining_quiz(perception, maze=None, step=20, seed=0):
+    """One question from the pretraining quiz, at move ``step`` of the scripted explorer's walk.
+
+    perception: a Pretrained (``mz.load_perception()``) that kept its prediction read-outs.
+    maze: a Maze, a scenario name, or None for a random layout made from ``seed``.
+    Returns a Figure with three windows: what the network is given; the answers (hidden squares filled
+    in); the network's guesses, with wrong guesses outlined. (Pretraining also has a second, easy
+    question, the direction to unexplored ground; it isn't drawn.)
+    """
+    from .perception import true_window
+    _, maze, _, rewards, max_steps = _resolve(None, maze, seed, "flag")
+    env, obs, comp, moves, path, ended = _run_to("explorer", maze, step, seed, "flag", rewards, max_steps)
+
+    memory = obs[:N_MEMORY].argmax(0)
+    stood, now, firm = obs[N_MEMORY] > 0, obs[N_MEMORY + 1] > 0, obs[N_MEMORY + 2] > 0
+    hidden = memory == UNSEEN
+    truth = true_window(env)[0].cpu().numpy()
+    o, c = env.observe()
+    guess = perception.guess(o.cpu(), c.cpu())[0][0].numpy()
+
+    answer = np.where(hidden, _CLASS_TO_MEMORY[truth], memory)
+    guessed = np.where(hidden, _CLASS_TO_MEMORY[guess], memory)
+    wrong = hidden & (guess != truth)
+    n_hidden, n_right = int(hidden.sum()), int((hidden & ~wrong).sum())
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 5.2))
+    fig.patch.set_facecolor("white")
+    fig.suptitle(f"Pretraining quiz: the explorer after move {moves}", fontsize=13, fontweight="bold",
+                 x=0.02, ha="left", color=INK)
+
+    _draw_memory(axes[0], memory, now, stood, firm)
+    axes[0].set_title("1. What the network is given", fontsize=11, loc="left", color=INK)
+
+    _draw_memory(axes[1], answer)
+    _seen_line(axes[1], hidden)
+    axes[1].set_title("2. The answers", fontsize=11, loc="left", color=INK)
+
+    _draw_memory(axes[2], guessed)
+    _seen_line(axes[2], hidden)
+    for r, cc in zip(*np.nonzero(wrong)):
+        axes[2].add_patch(Rectangle((cc - 0.45, r - 0.45), 0.9, 0.9, fill=False, ec=RED, lw=1.8, zorder=9))
+    axes[2].set_title(f"3. The network's guesses: {n_right} of {n_hidden} right", fontsize=11, loc="left",
+                      color=INK)
+
+    handles = _memory_handles() + [
+        Line2D([], [], color=INK, lw=1.4, ls=(0, (1, 1.5)), label="edge of what it had seen"),
+        Patch(fc="none", ec=RED, lw=1.8, label="wrong guess")]
+    fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, fontsize=9,
+               handlelength=1.4, columnspacing=1.4, bbox_to_anchor=(0.5, 0.0))
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.86, bottom=0.2, wspace=0.06)
+    plt.close(fig)       # Jupyter shows the returned figure; closing stops a second copy
+    return fig
+
+
+def _seen_line(ax, hidden):
+    for (x0, y0), (x1, y1) in _outline(~hidden):
+        ax.plot([x0, x1], [y0, y1], color=INK, lw=1.4, ls=(0, (1, 1.5)), zorder=8)

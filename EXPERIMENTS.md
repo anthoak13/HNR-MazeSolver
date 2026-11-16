@@ -875,3 +875,14 @@ experiments 1–2, which ran on the desktop CPU.
 little stronger than on the desktop CPU runs. Perception pretraining takes 16 s on a GPU, so it could
 even run live. These ship as `perception`, `flag_frozen_pretrained`, `flag_frozen_random`,
 `escape_frozen_pretrained` and `escape_frozen_random`.
+
+## Round P1b: the Part 1 agents again, with the pretraining read-outs saved
+The Step 2 quiz figure shows the pretrained network's actual guesses, which needs the read-out layers
+that make them. The P1 perception file kept only the vision weights. Rerun P1 unchanged (seed 0,
+`OUT=runs/part1b`), now saving the read-outs, so the shipped perception and the four frozen agents built
+on it match.
+
+**Prediction:** the same as P1 within seed noise, since only the saving changed: perception about 86% /
+99%; flag frozen pretrained 75–90% on open mazes, frozen random under 15%; escape frozen pretrained about
+97%, frozen random 55–75%. (The data collection was refactored to share the explorer's move rule with
+playback; it draws the same random numbers in the same order, so the data should be identical.)

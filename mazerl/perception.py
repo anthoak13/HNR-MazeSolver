@@ -47,6 +47,20 @@ def frontier_direction(env):
     return torch.where(best.values < far, best.indices, torch.full_like(best.indices, -1))
 
 
+def explorer_moves(env, gen, explore=0.3, front=None):
+    """The scripted explorer's next moves: toward the nearest unexplored open cell, or a random move
+    with probability ``explore`` (or when there's nowhere new to go). No network, no rewards."""
+    front = frontier_direction(env) if front is None else front
+    rand = torch.randint(0, 4, (env.n,), generator=gen).to(env.device)
+    wander = torch.rand(env.n, generator=gen).to(env.device) < explore
+    return torch.where(wander | (front < 0), rand, front)
+
+
+def true_window(env):
+    """The real contents of each env's 11 x 11 window, as prediction classes (see CLASS_NAMES)."""
+    return _true_window(env)
+
+
 def _true_window(env):
     r = env.pos[:, 0, None] + env.crop_range
     c = env.pos[:, 1, None] + env.crop_range
@@ -70,9 +84,7 @@ def collect(bank, n_samples, n_envs=256, explore=0.3, max_steps=200, seed=0, dev
         keep["unseen"].append((obs[:, UNSEEN] > 0).cpu())
         keep["frontier"].append(front.to(torch.int8).cpu())
         n += n_envs
-        rand = torch.randint(0, 4, (n_envs,), generator=gen).to(env.device)
-        wander = torch.rand(n_envs, generator=gen).to(env.device) < explore
-        env.step(torch.where(wander | (front < 0), rand, front))
+        env.step(explorer_moves(env, gen, explore, front))
     return {k: torch.cat(v)[:n_samples] for k, v in keep.items()}
 
 
@@ -96,17 +108,34 @@ class Pretrained:
     history: dict = field(default_factory=dict)
     test: dict = field(default_factory=dict)
     seconds: float = 0.0
+    heads: PredictionHeads = None      # the read-outs that make the guesses (None in older files)
 
     def save(self, path):
         torch.save({"perception": self.agent.perception_state(), "history": self.history,
-                    "test": self.test, "seconds": self.seconds}, path)
+                    "test": self.test, "seconds": self.seconds,
+                    "heads": self.heads.state_dict() if self.heads is not None else None}, path)
 
     @classmethod
     def load(cls, path):
         d = torch.load(path, map_location="cpu", weights_only=False)
         agent = Agent()
         agent.load_perception(d["perception"])
-        return cls(agent, d["history"], d["test"], d["seconds"])
+        heads = None
+        if d.get("heads") is not None:
+            heads = PredictionHeads()
+            heads.load_state_dict(d["heads"])
+            heads.eval()
+        return cls(agent, d["history"], d["test"], d["seconds"], heads)
+
+    @torch.no_grad()
+    def guess(self, obs, compass):
+        """The network's answers for a batch of inputs: the class of every square in the window
+        (n, 11, 11), and the move toward the nearest unexplored open square (n,)."""
+        if self.heads is None:
+            raise ValueError("this file has no prediction read-outs saved; re-run pretrain_perception()")
+        self.agent.eval()
+        map_logits, front_logits = self.heads(self.agent.perceive(obs.float(), compass.float()))
+        return map_logits.argmax(1), front_logits.argmax(1)
 
 
 def _losses(agent, heads, b, device):
@@ -168,7 +197,7 @@ def pretrain_perception(steps=3000, batch=256, n_samples=150_000, lr=1e-3, seed=
               "frontier_acc": sum(f for _, f in accs) / len(accs),
               "map_acc_majority_baseline": majority, "frontier_acc_chance": 0.25,
               "data_seconds": t_data}
-    return Pretrained(agent.cpu().eval(), history, result, time.time() - t0)
+    return Pretrained(agent.cpu().eval(), history, result, time.time() - t0, heads.cpu().eval())
 
 
 def _majority_baseline(data, test):

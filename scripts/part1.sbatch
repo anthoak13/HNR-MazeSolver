@@ -16,9 +16,9 @@
 #SBATCH --output=logs/part1_%A_%a.out
 
 set -euo pipefail
-mkdir -p logs runs/part1
+mkdir -p logs "${OUT:-runs/part1}"
 source "${VENV:-$HOME/pytorch/.venv}/bin/activate"
-OUT=runs/part1
+OUT=${OUT:-runs/part1}
 P=$OUT/perception.pt
 COMMON="--seed 0 --episodes 20000 --freeze --device cuda --threads $SLURM_CPUS_PER_TASK --evaluate 500 --out $OUT"
 case $SLURM_ARRAY_TASK_ID in
