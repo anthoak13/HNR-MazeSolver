@@ -215,6 +215,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
                handlelength=1.3, columnspacing=1.4, bbox_to_anchor=(0.5, 0.0))
 
     fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.2, wspace=0.06)
+    plt.close(fig)       # Jupyter shows the returned figure; closing stops a second copy
     return fig
 
 

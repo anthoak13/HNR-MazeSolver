@@ -46,6 +46,7 @@ def plot_training(runs, labels=None, smooth=10, metrics=None):
         fig.legend(*axes.flat[0].get_legend_handles_labels(), loc="upper center",
                    ncol=min(len(runs), 4), frameon=False, fontsize=9, bbox_to_anchor=(0.5, 1.04))
     fig.tight_layout()
+    plt.close(fig)       # Jupyter shows the returned figure; closing stops a second copy
     return fig
 
 
