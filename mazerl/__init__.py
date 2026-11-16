@@ -11,6 +11,7 @@ The main pieces:
   * pretrain_perception(): reward-free pretraining of the agent's vision
   * check_gpu(): is this notebook running on a GPU?
 """
+from importlib.metadata import PackageNotFoundError, version as _version
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,11 @@ from .perception import pretrain_perception, Pretrained
 from .viz import plot_training
 from . import player
 from .observation import show_observation
+
+try:
+    __version__ = _version("mazerl")
+except PackageNotFoundError:     # running from a source tree that isn't installed
+    __version__ = "unknown"
 
 _PRETRAINED = Path(__file__).parent / "pretrained"
 
