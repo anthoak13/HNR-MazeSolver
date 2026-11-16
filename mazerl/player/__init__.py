@@ -20,7 +20,12 @@ Episode data contract (all coordinates are ``[row, col]``, row 0 at the top)::
                   "trail_length": None}            # optional; None = whole trail
     }
 
-Event types: ``probe``, ``through_wall``, ``outside``, ``new_cell``, ``flag``.
+Event types: ``probe``, ``through_wall``, ``outside``, ``new_cell``, ``flag`` (``escaped`` for
+the escape task).
+
+``"task": "escape"`` (optional; default ``"flag"``) marks an escape episode: the agent starts on the
+flag's cell and succeeds by reaching any outside cell, so the flag and the GOAL label are not drawn
+and success is called "Escaped".
 
 Public API: :func:`render`, :func:`render_grid`, :func:`show`, :func:`save`.
 """

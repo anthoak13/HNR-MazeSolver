@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from .env import MazeEnv, Rewards, PAD
-from .maze import Maze, MazeBank, FLOOR, WEAK, OUTSIDE, path_length
+from .maze import Maze, MazeBank, FLOOR, WEAK, OUTSIDE, BAND, MAZE, path_length
 
 
 def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, seed=0, task="flag"):
@@ -11,6 +11,8 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
 
     agent: a trained Agent, or None for an untrained agent that moves at random.
     The dicts follow the player's data contract (grid, start, flag, agents[path, score, events]).
+    Each agent also gets "return" (the attempt's total points) and "env_return" (the same total as
+    the environment tallied it, for checking).
     task: "flag" or "escape" (start on the flag's cell; success = reaching any outside cell).
     """
     mazes = [mazes] if isinstance(mazes, Maze) else list(mazes)
@@ -56,7 +58,8 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
                     events[i].append({"t": t, "type": kind, "value": value, "cell": cell})
             if done[i]:
                 outcome[i] = {"reached": bool(info["reached"][i]), "bypass": bool(info["bypass"][i]),
-                              "steps": t, "return": scores[i][-1]}
+                              "steps": t, "return": scores[i][-1],
+                              "env_return": float(info["final_return"][i])}
         finished |= done
         if finished.all():
             break
@@ -74,6 +77,32 @@ def record(agent, mazes, n_agents=1, rewards=None, greedy=False, max_steps=200, 
 
 def _cell(p):
     return [int(p[0]) - PAD, int(p[1]) - PAD]
+
+
+def _inside(cell):
+    """Is this cell (arena coordinates) inside the maze, rather than in the outside band?"""
+    return BAND <= cell[0] < BAND + MAZE and BAND <= cell[1] < BAND + MAZE
+
+
+def points_by_source(attempt, rewards, task="flag"):
+    """Total points one recorded attempt (an agent dict from ``record``) got from each source.
+
+    Rebuilt from its events and path using the ``rewards`` values; "total" equals the attempt's
+    return. "per move" appears only when ``rewards.step`` is not zero.
+    """
+    count = lambda kind: sum(e["type"] == kind for e in attempt["events"])
+    new = [e["cell"] for e in attempt["events"] if e["type"] == "new_cell"]
+    new_in = sum(_inside(c) for c in new)
+    new_out = (len(new) - new_in) if rewards.explore_outside else 0
+    points = {"flag": rewards.flag * count("escaped" if task == "escape" else "flag"),
+              "steps outside": rewards.outside * count("outside"),
+              "wall bumps": rewards.probe * (count("probe") + count("through_wall")),
+              "new squares inside": rewards.new_cell * new_in,
+              "new squares outside": rewards.new_cell * new_out}
+    if rewards.step:
+        points["per move"] = rewards.step * (len(attempt["path"]) - 1)
+    points["total"] = sum(points.values())
+    return points
 
 
 def summarize(episodes):
@@ -160,7 +189,7 @@ def standard_report(run, n=500, seed=99):
 def breakout_stages(agent, maze=None, n=500, rewards=None, max_steps=200, seed=0):
     """Example 1, "breaks out to finish an impossible task" (default: the article's enclosed maze).
     The share of attempts that got through each stage: left the maze, broke back in from outside
-    through a weak spot, reached the flag."""
+    through a weak spot, reached the flag. (Flag task only.)"""
     from .maze import scenario, OUTSIDE
     maze = maze or scenario("enclosed")
     ep = record(agent, [maze], n_agents=n, rewards=rewards, max_steps=max_steps, seed=seed)[0]

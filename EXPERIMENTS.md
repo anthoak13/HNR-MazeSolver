@@ -852,3 +852,26 @@ experiments 1–2, which ran on the desktop CPU.
 - Flag, frozen pretrained: 60–80% on open mazes. Flag, frozen random: under 15% on open mazes.
 - Escape, frozen pretrained: about 97% on open mazes. Escape, frozen random: 55–75% on open mazes (a
   random walker often stumbles out), and clearly below pretrained on weak-spot mazes.
+
+**Result** (`runs/part1/`, 500 attempts per test, A30):
+
+| Run | Open | Weak spot | Out and back | p.6 maze | Time |
+|---|---|---|---|---|---|
+| perception: unseen squares 86.1% (majority guess 53.3%), direction 99.2% | | | | | 16 s |
+| flag, frozen pretrained | 85% | 34% | 61% | 0% | 1.0 min |
+| flag, frozen random | 14% | 14% | 2% | 0% | 1.2 min |
+| escape, frozen pretrained | 97% | 64% | 96% | 50% (escapes) | 0.6 min |
+| escape, frozen random | 65% | 26% | 59% | 0% | 1.0 min |
+
+| Prediction | Result |
+|---|---|
+| perception about 86% / 99% | ✓ 86.1% / 99.2% |
+| flag, frozen pretrained 60–80% on open | ✗ above it: 85% |
+| flag, frozen random under 15% on open | ✓ 14% |
+| escape, frozen pretrained about 97% on open | ✓ 97.4% |
+| escape, frozen random 55–75% on open, clearly below pretrained on weak spots | ✓ 65%; 26% vs 64% |
+
+**What this shows:** the locked comparison reproduces on the GPU at seed 0, and the flag version is a
+little stronger than on the desktop CPU runs. Perception pretraining takes 16 s on a GPU, so it could
+even run live. These ship as `perception`, `flag_frozen_pretrained`, `flag_frozen_random`,
+`escape_frozen_pretrained` and `escape_frozen_random`.

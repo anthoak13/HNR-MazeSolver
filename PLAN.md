@@ -173,7 +173,7 @@ for definitions and debugging only.
 |---|---|---|
 | Campus cluster, `thor` (NVIDIA A30), via SLURM | **≈5 min** (measured) | all pretraining and experiments |
 | Desktop CPU (8 threads) | ≈50 min (measured) | quick checks and evaluation |
-| Colab CPU / T4 | not measured yet (`notebooks/00-benchmark.ipynb`) | class |
+| Colab T4 | ≈15 min (measured, `notebooks/00-benchmark.ipynb`); 20k attempts ≈2.4 min from scratch, ≈1.5 min on frozen perception; perception pretraining ≈20 s | class |
 
 **Cluster setup** (`ssh hpc`):
 - Repo at `~/HNR-MazeSolver`, installed into `~/pytorch/.venv` (torch 2.9, CUDA 12.8). Jobs use partition

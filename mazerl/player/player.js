@@ -80,12 +80,15 @@
       case 'probe': return ['Probe' + vs];
       case 'through_wall': return ['Broke through', 'wall' + vs];
       case 'flag': return ['Flag' + vs];
+      case 'escaped': return ['Escaped' + vs];
       case 'new_cell': return null;
       default: return [String(ev.type).replace(/_/g, ' ') + vs];
     }
   }
   // when (in moves) an event's effects start showing: probes at the nudge peak,
   // everything else as the agent arrives in the cell
+  // the event that ends a successful attempt: reaching the flag, or (escape task) getting out
+  function isGoal(type) { return type === 'flag' || type === 'escaped'; }
   function fireTime(ev) { return ev.t - (ev.type === 'probe' ? 0.5 : 0.3); }
 
   // ------------------------------------------------------- data preparation
@@ -130,7 +133,8 @@
     });
     var T = 0;
     agents.forEach(function (a) { T = Math.max(T, a.n - 1); });
-    return { ep: ep, o: o, grid: grid, rows: rows, cols: cols, agents: agents, opens: opens, T: T };
+    var escape = ep.task === 'escape'; // start on the flag's cell; the goal is any outside cell
+    return { ep: ep, o: o, grid: grid, rows: rows, cols: cols, agents: agents, opens: opens, T: T, escape: escape };
   }
 
   // agent position (in cell units, fractional) at time t; `trail` = without probe nudges
@@ -257,7 +261,7 @@
       if (anyOutside && rows >= 3 && grid[rows - 1][0] === 3 && grid[rows - 2][0] === 3) {
         label('OUTSIDE', 0.4 * S, (rows - 1) * S, 'start', 4.4);
       }
-      if (ep.flag) {
+      if (ep.flag && !P.escape) {
         var fr = ep.flag[0], fc = ep.flag[1];
         if (fc >= 3) label('GOAL', cx(fc) - 0.62 * S, cy(fr) + 0.04 * S, 'end', 4.4);
         else label('GOAL', cx(fc) + 0.62 * S, cy(fr) + 0.04 * S, 'start', 4.4);
@@ -281,7 +285,7 @@
         stroke: COL.startStroke, 'stroke-width': 0.065 * S
       }, gMarks);
     }
-    if (ep.flag) {
+    if (ep.flag && !P.escape) { // escape task: no flag to reach (the start ring marks where it was)
       var fx = cx(ep.flag[1]), fy = cy(ep.flag[0]);
       el('circle', { cx: fx, cy: fy, r: 0.43 * S, fill: COL.flag }, gMarks);
       el('line', {
@@ -459,11 +463,11 @@
         var pulse = null;
         for (var i = a.pulses.length - 1; i >= 0; i--) if (a.pulses[i].fire <= t) { pulse = a.pulses[i]; break; }
         var pa = pulse ? secs(t - pulse.fire) : 99;
-        var pdur = pulse && pulse.ev.type === 'flag' ? 1.4 : 0.9;
+        var pdur = pulse && isGoal(pulse.ev.type) ? 1.4 : 0.9;
         if (pulse && pa < pdur) {
           var f = pa / pdur;
           st.pulse.setAttribute('cx', x.toFixed(2)); st.pulse.setAttribute('cy', y.toFixed(2));
-          st.pulse.setAttribute('r', (S * (0.36 + (pulse.ev.type === 'flag' ? 0.8 : 0.45) * easeOut(f))).toFixed(2));
+          st.pulse.setAttribute('r', (S * (0.36 + (isGoal(pulse.ev.type) ? 0.8 : 0.45) * easeOut(f))).toFixed(2));
           st.pulse.setAttribute('opacity', (1 - f).toFixed(3));
         } else st.pulse.setAttribute('opacity', 0);
 
@@ -482,7 +486,7 @@
         var co = null;
         for (i = a.callouts.length - 1; i >= 0; i--) if (a.callouts[i].fire <= t) { co = a.callouts[i]; break; }
         var ca = co ? secs(t - co.fire) : 99;
-        var persist = co && co.ev.type === 'flag';
+        var persist = co && isGoal(co.ev.type);
         var vis = co && (persist || ca < CALLOUT_SECS);
         var L = null;
         if (vis) {
