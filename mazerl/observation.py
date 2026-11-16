@@ -205,7 +205,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
             Line2D([], [], marker="o", ls="", mfc="white", mec=RED, ms=8, label="where it started"),
             Line2D([], [], color=RED, alpha=0.55, lw=2.5, label="its path so far"),
             Patch(fc="none", ec=INK, lw=2, label="the 11×11 window it gets"),
-            Patch(fc=SEE_C, alpha=0.3, ec=SEE_C, ls="--", label="what it can see now (5×5)"),
+            Patch(fc="none", ec=SEE_C, lw=1.2, ls="--", label="maximum vision range (5×5)"),
             Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)")]
     axes[0].legend(handles=real, ncol=2, title="The real maze", **kw)
     square = lambda code, label: Patch(fc=MEMORY[code][0], ec="#bbbbbb", label=label)
