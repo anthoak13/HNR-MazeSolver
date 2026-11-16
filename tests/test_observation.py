@@ -30,7 +30,7 @@ def test_show_observation_returns_figure(kwargs):
         kwargs = {**kwargs, "agent": mz.Agent()}
     fig = show_observation(**kwargs)
     assert isinstance(fig, plt.Figure)
-    assert len(fig.axes) == 4
+    assert len(fig.axes) == 3
     plt.close(fig)
 
 

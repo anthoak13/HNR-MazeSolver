@@ -1,8 +1,10 @@
 """One picture of exactly what the network receives at one moment of an attempt (TEACHING.md Part 1,
 step 1, "What the agent sees").
 
-Everything in panels 2-4 is read straight from the tensors ``MazeEnv.observe()`` hands the network, so
-the figure cannot drift from what the agent really gets.
+The memory window and the compass are read straight from the tensors ``MazeEnv.observe()`` hands the
+network, so the figure cannot drift from what the agent really gets. The network also gets three more
+layers on the same window (squares stood on, squares visible now, walls bumped that held firm); they
+aren't drawn, to keep the picture readable.
 """
 import numpy as np
 import torch
@@ -107,8 +109,7 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     agent: a Run, an Agent, or None (random moves).
     maze: a Maze, a scenario name such as "enclosed", or None for a random layout made from ``seed``.
     task: "flag" or "escape"; defaults to the Run's task, else "flag".
-    Returns the matplotlib Figure: the real maze, the agent's memory window, the extra clues on that
-    window, and the compass. If the attempt ends before ``step``, the last moment is shown.
+    Returns the matplotlib Figure: the real maze, the agent's memory window, and the compass. If the attempt ends before ``step``, the last moment is shown.
     """
     agent, maze, task, rewards, max_steps = _resolve(agent, maze, seed, task)
     env, obs, comp, moves, path, ended = _run_to(agent, maze, step, seed, task, rewards, max_steps)
@@ -118,11 +119,11 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     pr, pc = (int(v) - PAD for v in env.pos[0])   # agent, arena coordinates
     grid = env.grid[0].cpu().numpy()                # true layout now (broken weak spots are floor)
 
-    fig, axes = plt.subplots(1, 4, figsize=(17, 5.4), gridspec_kw={"width_ratios": [1.25, 1, 1, 0.8]})
+    fig, axes = plt.subplots(1, 3, figsize=(11, 5.6), gridspec_kw={"width_ratios": [1.25, 1, 0.55]})
     fig.patch.set_facecolor("white")
     when = f"after move {moves}" + (" (the attempt ended here)" if ended else "")
     goal = "escape: get out of the maze" if task == "escape" else "reach the flag"
-    fig.suptitle(f"What the network sees {when}   ·   task: {goal}", fontsize=14, fontweight="bold",
+    fig.suptitle(f"What the network sees {when}   ·   task: {goal}", fontsize=13, fontweight="bold",
                  x=0.02, ha="left", color=INK)
 
     # ---- (a) the real maze -----------------------------------------------------------------
@@ -149,84 +150,71 @@ def show_observation(agent=None, maze=None, step=10, seed=0, task=None):
     sr, sc = (int(v) - PAD for v in env.start[0])
     ax.add_patch(Circle((sc, sr), 0.3, fc="white", ec=RED, lw=1.2, zorder=5))
     if task != "escape":
-        fr, fc = maze.flag
-        ax.add_patch(Circle((fc, fr), 0.43, fc=FLAG_INK, ec="none", zorder=5))
-        ax.plot([fc - 0.13, fc - 0.13], [fr + 0.25, fr - 0.22], color="white", lw=1, zorder=6)
-        ax.fill([fc - 0.13, fc + 0.22, fc - 0.13], [fr - 0.23, fr - 0.09, fr + 0.06], color="white", zorder=6)
+        _flag(ax, *maze.flag)
     ax.add_patch(Circle((pc, pr), 0.3, fc=RED, ec="none", zorder=7))
     ax.set_xlim(ext[0], ext[1])
     ax.set_ylim(ext[2], ext[3])
     _bare(ax)
-    ax.set_title("1. The real maze (the network never sees this)", fontsize=11, loc="left", color=INK)
-    handles = [Line2D([], [], marker="o", ls="", color=RED, ms=8, label="the agent"),
-               Patch(fc="none", ec=INK, lw=2, label="the 11×11 window it gets"),
-               Patch(fc=SEE_C, alpha=0.3, ec=SEE_C, ls="--", label="what it can see right now (5×5)"),
-               Line2D([], [], color=RED, alpha=0.55, lw=2.5, label="its path so far"),
-               Line2D([], [], marker="o", ls="", mfc="white", mec=RED, ms=8, label="where it started")]
-    if task != "escape":
-        handles.append(Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="the flag"))
-    handles += [Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)"),
-                Patch(fc=EDGE_C, label="edge of the arena")]
-    _legend(ax, handles)
+    ax.set_title("The real maze (the network never sees this)", fontsize=11, loc="left", color=INK)
 
     # ---- (b) memory window -------------------------------------------------------------------
     ax = axes[1]
-    ax.imshow(memory, cmap=_MEM_CMAP, vmin=-0.5, vmax=N_MEMORY - 0.5, interpolation="nearest")
+    shown = np.where(memory == M_FLAG, M_FLOOR, memory)       # the flag is drawn as a symbol instead
+    ax.imshow(shown, cmap=_MEM_CMAP, vmin=-0.5, vmax=N_MEMORY - 0.5, interpolation="nearest")
     _cells(ax, CROP, CROP, color="#bbbbbb", lw=0.4)
-    ax.add_patch(Circle((PAD, PAD), 0.3, fc=RED, ec="none", zorder=5))
+    for r, c in zip(*np.nonzero(memory == M_FLAG)):
+        _flag(ax, r, c)
+    ax.add_patch(Circle((PAD, PAD), 0.3, fc=RED, ec="none", zorder=7))
     ax.add_patch(Rectangle((-0.5, -0.5), CROP, CROP, fill=False, ec=INK, lw=2, zorder=6))
     _bare(ax)
-    ax.set_title("2. Its memory of the 11×11 squares around it", fontsize=11, loc="left", color=INK)
-    _legend(ax, [Patch(fc=MEMORY[k][0], ec="#bbbbbb", label=MEMORY[k][1]) for k in range(N_MEMORY)]
-            + [Line2D([], [], marker="o", ls="", color=RED, ms=8, label="the agent (always in the middle)")])
+    ax.set_title("What it remembers of its 11×11 window", fontsize=11, loc="left", color=INK)
 
-    # ---- (c) extra clues on the same window ----------------------------------------------------
+    # ---- (c) compass ---------------------------------------------------------------------------
     ax = axes[2]
-    ax.imshow(memory, cmap=_MEM_CMAP, vmin=-0.5, vmax=N_MEMORY - 0.5, interpolation="nearest", alpha=0.3)
-    _cells(ax, CROP, CROP, color="#dddddd", lw=0.4)
-    for r, c in zip(*np.nonzero(now)):
-        ax.add_patch(Rectangle((c - 0.5, r - 0.5), 1, 1, fc=SEE_C, alpha=0.3, ec="none", zorder=3))
-    sr_, sc_ = np.nonzero(stood)
-    ax.scatter(sc_, sr_, s=28, color=INK_2, zorder=4)
-    fr_, fc_ = np.nonzero(firm)
-    ax.scatter(fc_, fr_, s=90, marker="X", color=RED, linewidths=0, zorder=5)
-    ax.add_patch(Circle((PAD, PAD), 0.3, fc="none", ec=RED, lw=1.8, zorder=6))
-    ax.add_patch(Rectangle((-0.5, -0.5), CROP, CROP, fill=False, ec=INK, lw=2, zorder=6))
-    _bare(ax)
-    ax.set_title("3. Three more layers on the same squares", fontsize=11, loc="left", color=INK)
-    _legend(ax, [Patch(fc=SEE_C, alpha=0.3, label="can see right now"),
-                 Line2D([], [], marker="o", ls="", color=INK_2, ms=6, label="has stood here"),
-                 Line2D([], [], marker="X", ls="", color=RED, ms=9, label="bumped this wall; it held firm")],
-            ncol=1)
-
-    # ---- (d) compass ---------------------------------------------------------------------------
-    ax = axes[3]
     ax.set_aspect("equal")
-    ax.set_xlim(-1.45, 1.45)
-    ax.set_ylim(-1.6, 1.45)
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.9, 1.5)
     _bare(ax)
     ax.add_patch(Circle((0, 0), 1, fc="#fafafa", ec="#cccccc", lw=1))
     for k in range(N_COMPASS):
         a = k * np.pi / 4
         ax.plot([0.88 * np.cos(a), np.cos(a)], [0.88 * np.sin(a), np.sin(a)], color="#bbbbbb", lw=1)
-        ax.text(1.22 * np.cos(a), 1.22 * np.sin(a), DIRECTIONS[k], ha="center", va="center",
-                fontsize=8, color=INK_2)
     if comp.sum() > 0:
         k = int(comp.argmax())
         ax.add_patch(Circle((0, 0), 0.07, fc=INK, zorder=6))
         a = k * np.pi / 4
         ax.add_patch(FancyArrowPatch((0, 0), (0.85 * np.cos(a), 0.85 * np.sin(a)), arrowstyle="-|>",
                                      mutation_scale=22, lw=3, color=RED, zorder=5))
-        note = f"The flag is {DIRECTIONS[k]}.\n(One of 8 directions; no distance.)"
+        note = f"The flag is {DIRECTIONS[k]}.\nOne of 8 directions,\nno distance."
     else:
-        ax.text(0, 0, "no compass", ha="center", va="center", fontsize=12, color=INK_2, fontweight="bold")
-        note = ("Escape task: all 8 compass inputs\nare zero. There's no flag to point to."
-                if task == "escape" else "All 8 compass inputs are zero.")
-    ax.text(0, -1.42, note, ha="center", va="top", fontsize=9, color=INK)
-    ax.set_title("4. The compass", fontsize=11, loc="left", color=INK)
+        ax.text(0, 0, "none", ha="center", va="center", fontsize=12, color=INK_2, fontweight="bold")
+        note = "No compass in the\nescape task." if task == "escape" else "The compass is off."
+    ax.text(0, -1.2, note, ha="center", va="top", fontsize=9, color=INK)
+    ax.set_title("Compass", fontsize=11, loc="left", color=INK)
 
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.86, bottom=0.2, wspace=0.08)
+    # ---- one legend for the whole figure -------------------------------------------------------
+    handles = [Line2D([], [], marker="o", ls="", color=RED, ms=8, label="the agent"),
+               Line2D([], [], marker="o", ls="", mfc="white", mec=RED, ms=8, label="where it started"),
+               Line2D([], [], color=RED, alpha=0.55, lw=2.5, label="its path so far"),
+               Patch(fc="none", ec=INK, lw=2, label="the 11×11 window it gets"),
+               Patch(fc=SEE_C, alpha=0.3, ec=SEE_C, ls="--", label="what it can see now (5×5)")]
+    handles += [Patch(fc=MEMORY[k][0], ec="#bbbbbb", label=MEMORY[k][1])
+                for k in (UNSEEN, M_FLOOR, M_OUTSIDE, M_WALL, M_EDGE)]
+    handles.append(Patch(fc=WEAK_GRAY, ec=WALL_GRAY, lw=2, label="weak spot (looks like wall to it)"))
+    if task != "escape" or (memory == M_FLAG).any():
+        handles.append(Line2D([], [], marker="o", ls="", color=FLAG_INK, ms=8, label="the flag"))
+    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=9,
+               handlelength=1.3, columnspacing=1.4, bbox_to_anchor=(0.5, 0.0))
+
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.2, wspace=0.06)
     return fig
+
+
+def _flag(ax, r, c):
+    """The player's flag symbol: a black disc with a white pennant."""
+    ax.add_patch(Circle((c, r), 0.43, fc=FLAG_INK, ec="none", zorder=5))
+    ax.plot([c - 0.13, c - 0.13], [r + 0.25, r - 0.22], color="white", lw=1, zorder=6)
+    ax.fill([c - 0.13, c + 0.22, c - 0.13], [r - 0.23, r - 0.09, r + 0.06], color="white", zorder=6)
 
 
 def _hex(h):
