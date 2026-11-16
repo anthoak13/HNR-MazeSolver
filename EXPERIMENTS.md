@@ -886,3 +886,6 @@ on it match.
 99%; flag frozen pretrained 75–90% on open mazes, frozen random under 15%; escape frozen pretrained about
 97%, frozen random 55–75%. (The data collection was refactored to share the explorer's move rule with
 playback; it draws the same random numbers in the same order, so the data should be identical.)
+
+**Result:** ✓ identical to P1, to the last digit on every test. The vision weights and all four RL agents
+are bit-for-bit the same as P1's, so only `perception.pt` is replaced (now with read-outs).

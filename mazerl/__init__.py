@@ -70,11 +70,14 @@ def _one_maze(maze, seed):
 
 def playback(agent, maze=None, n_agents=1, seed=0, rewards=None, greedy=False, max_steps=None,
              task=None, **kwargs):
-    """Animate ``n_agents`` attempts by ``agent`` (a Run, an Agent, or None for random moves).
+    """Animate ``n_agents`` attempts by ``agent`` (a Run, an Agent, None for random moves, or
+    "explorer" for the scripted explorer that makes the pretraining data, shown earning no points).
 
     maze: a Maze, a test maze's name (see SCENARIOS), or None for a new random layout.
     task: "flag" or "escape"; None uses the Run's task (or "flag").
     """
+    if isinstance(agent, str) and agent == "explorer":      # the pretraining explorer earns nothing
+        rewards = rewards or Rewards(flag=0.0, outside=0.0, probe=0.0, new_cell=0.0)
     agent, rewards, max_steps, task = _unpack(agent, rewards, max_steps, task)
     episode = record(agent, [_one_maze(maze, seed)], n_agents=n_agents, rewards=rewards,
                      greedy=greedy, seed=seed, max_steps=max_steps, task=task)[0]
