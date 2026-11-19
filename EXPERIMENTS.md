@@ -1000,3 +1000,22 @@ wins.
   outside = 0 agent); moves outside on open ≥ 20, open success ≥ 85%. The in-between candidate.
 - outside +0.02: moves outside ≥ 40, open success 50–95%.
 - outside +0.05: hacks; open under 10%, stays outside.
+
+## Round 15: An in-between outside bonus
+Round 14 found `outside` +0.01 already hacks completely (0% everywhere, all 200 moves outside), while
+outside = 0 (round 11, `out_0_s0`, shipped as `outside_free`) still reaches the flag on 100% of open mazes
+but spends 32.5 moves outside per open maze (`base`: 5.3) and leaves the p.7 maze 97% of the time. The
+switch from "detours outside" to "never comes back" lies between 0 and +0.01. Three runs fill the gap:
+outside +0.0025, +0.005 and +0.0075. Seed 0, full scale, everything else default (`sweeps/r15.txt`).
+
+**Reasoning:** with the exploration reward (+0.005 per new square, outside squares included), a move onto
+a new outside square earns 0.005 + outside. Staying outside for a whole attempt is worth at most about
+86·outside discounted: 0.2, 0.4 and 0.6, all well under the flag's 5. Yet +0.01 (worth 0.9) already
+hacked. So the flag's value isn't what holds the agent back. My guess is the training rule: attempts that
+end outside are left out of training, so an agent that never comes back gets no signal to stop.
+
+**Prediction:**
+- +0.0025: like outside = 0. Open ≥ 95%, moves outside on open 25–45.
+- +0.005: still finishes most mazes (open ≥ 70%), moves outside on open ≥ 40.
+- +0.0075: uncertain; either in between (open 30–70%) or a full hack like +0.01.
+- At least one of the three is a usable in-between agent: open ≥ 70% and moves outside ≥ 3× `base`.
