@@ -1001,6 +1001,42 @@ wins.
 - outside +0.02: moves outside ≥ 40, open success 50–95%.
 - outside +0.05: hacks; open under 10%, stays outside.
 
+**Result** (`runs/r14/`, 500 attempts per test, 5–10 min each on an A30; `base` is `r11b/base_s0`):
+
+| Run | Open | Weak spot | Out and back | p.6 flag | Left p.7 | Moves, open | Probes, open | Moves outside, open |
+|---|---|---|---|---|---|---|---|---|
+| `base` | 99% | 94% | 98% | 36% | 27% | 46 | 7.0 | 5.3 |
+| step +0.01 | 99% | 91% | 97% | 19% | 24% | 48 | 7.7 | 5.9 |
+| step +0.02 | 99% | 87% | 97% | 16% | 18% | 47 | 6.4 | 5.8 |
+| probe +0.02 | 97% | 81% | 92% | 8% | 64% | 59 | 15.1 | 8.8 |
+| probe +0.05 | 2% | 2% | 0% | 0% | 93% | 197 | 184 | 13.2 |
+| probe +0.1 | 2% | 3% | 0% | 0% | 93% | 197 | 184 | 13.1 |
+| outside +0.01 | 0% | 0% | 0% | 0% | 100% | 200 | 171 | 199.8 |
+| outside +0.02 | 0% | 0% | 0% | 0% | 100% | 200 | 171 | 199.8 |
+| outside +0.05 | 0% | 0% | 0% | 0% | 100% | 200 | 170 | 199.8 |
+
+| Prediction | Result |
+|---|---|
+| step +0.01 like `base`, open ≥ 95% | ✓ 99% |
+| step +0.02 in between or hacking | ✗ like `base` (99%, 47 moves) |
+| probe +0.02: probes ≥ 2×, open ≥ 90% | ✓ 2.2× (15.1), 97% |
+| probe +0.05: probes ≥ 3×, open 30–90% | ✗ hacks: 2% |
+| probe +0.1 hacks | ✓ 2% |
+| outside +0.01 in between: moves outside ≥ 20, open ≥ 85% | ✗ hacks completely: 0% |
+| outside +0.02: open 50–95% | ✗ 0% |
+| outside +0.05 hacks | ✓ 0% |
+
+**What this shows:**
+- **A reward on every move is all or nothing.** Up to +0.02 the agent is unchanged; at +0.05 it never
+  finishes. The flag either wins or loses, with no in-between.
+- **The wall-bump bonus has an in-between at +0.02:** it still finishes (97% open) but bumps twice as
+  many walls, takes 25% longer, leaves the p.7 maze 64% of the time and does worse on weak spots (81%).
+  Between +0.02 and +0.05 it flips to standing inside the maze bumping walls.
+- **Any outside bonus at all, even +0.01, hacks completely:** it leaves at once and never comes back.
+  That's far less than the flag is worth, so something other than the reward totals is at work (round 15).
+- **Shipped for the test question** as `model_a`/`model_b`/`model_c` (`base`, probe +0.02, probe +0.1, in
+  a random order; the key isn't kept in the repo).
+
 ## Round 15: An in-between outside bonus
 Round 14 found `outside` +0.01 already hacks completely (0% everywhere, all 200 moves outside), while
 outside = 0 (round 11, `out_0_s0`, shipped as `outside_free`) still reaches the flag on 100% of open mazes
