@@ -1034,7 +1034,8 @@ wins.
   Between +0.02 and +0.05 it flips to standing inside the maze bumping walls.
 - **Any outside bonus at all, even +0.01, hacks completely:** it leaves at once and never comes back.
   That's far less than the flag is worth, so something other than the reward totals is at work (round 15).
-- **Also shipped:** outside +0.01 as `outside_bonus`.
+- **Also shipped, for a second comparison:** `model_x`/`model_y`/`model_z` (`base`, outside 0 and outside
+  +0.01, in a random order; the key isn't kept in the repo).
 - **Shipped for the test question** as `model_a`/`model_b`/`model_c` (`base`, probe +0.02, probe +0.1, in
   a random order; the key isn't kept in the repo).
 

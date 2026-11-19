@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mazerl"
-version = "0.3.8"
+version = "0.3.9"
 description = "Maze-solving reinforcement learning agents for the HNR-1303 classroom activity"
 requires-python = ">=3.9"
 dependencies = ["numpy", "torch", "matplotlib", "ipython", "tqdm"]
