@@ -976,3 +976,27 @@ per-move income is worth about 8.6 at +0.05 against the flag's 5.
 - **The wall-bump bonus barely shows:** about 4 more bumps per open maze and slightly slower runs. It
   leaves the p.7 maze more (43% vs 27%) and reaches the p.6 flag less (15% vs 36%), but p.6 varies a lot
   between seeds.
+
+## Round 14: Looking for an in-between agent (step, wall-bump bonus, outside bonus)
+The test question needs three clearly different agents: `base`; one that hacks and never reaches the flag;
+and an in-between one that still reaches the flag but takes a path bent by the incentive. Round 13 found
+only the first two. Try smaller per-move rewards, bigger wall-bump bonuses and a bonus for each move
+outside. Seed 0, full scale, everything else default (`sweeps/r14.txt`).
+
+**Reasoning:** attempts last 200 moves with discount 0.99, so a reward r on every remaining move is worth
+at most about 86·r (and 200·r undiscounted), against the flag's 5. Breakeven is r ≈ 0.025 undiscounted and
+≈ 0.06 discounted. A bonus that pays on *every* move can be collected anywhere, so it tends to be all or
+nothing. A bonus tied to a place (outside) or an action (bumping) can bend the path while the flag still
+wins.
+
+**Prediction:**
+- step +0.01 (at most 2 over a whole attempt): like `base`; open ≥ 95%.
+- step +0.02 (at most 4): in between or hacking. Open success drops below 90%, *or* attempts that do
+  finish take ≥ 1.3× as many moves as `base`. A full hack (0%) is also possible.
+- probe +0.02: probes ≥ 2× `base` (7.0 on open), open ≥ 90%.
+- probe +0.05: probes ≥ 3× `base`; open between 30% and 90% (the in-between candidate).
+- probe +0.1: hacks; open under 10%, bumping walls most of the attempt.
+- outside +0.01 (a small bonus instead of a penalty): goes outside more than `outside_free` did (the
+  outside = 0 agent); moves outside on open ≥ 20, open success ≥ 85%. The in-between candidate.
+- outside +0.02: moves outside ≥ 40, open success 50–95%.
+- outside +0.05: hacks; open under 10%, stays outside.

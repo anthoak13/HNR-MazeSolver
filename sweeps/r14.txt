@@ -1,0 +1,8 @@
+step_0.01_s0 --seed 0 --reward step=0.01
+step_0.02_s0 --seed 0 --reward step=0.02
+probe_0.02_s0 --seed 0 --reward probe=0.02
+probe_0.05_s0 --seed 0 --reward probe=0.05
+probe_0.1_s0 --seed 0 --reward probe=0.1
+outside_+0.01_s0 --seed 0 --reward outside=0.01
+outside_+0.02_s0 --seed 0 --reward outside=0.02
+outside_+0.05_s0 --seed 0 --reward outside=0.05
