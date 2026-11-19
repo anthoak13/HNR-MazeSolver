@@ -91,7 +91,8 @@ def playback_compare(agents, labels=None, maze=None, n_agents=1, seed=0, greedy=
     labels: a heading for each panel (default "Agent 1", "Agent 2", ...).
     maze: a Maze, a test maze's name, or None for one random layout (from ``seed``) used in every panel.
     Every panel uses the same ``seed``, so differences come from the agents, not from luck.
-    Each agent is scored with its own rewards.
+    Scores are hidden by default (they'd give away the rewards each agent trained on); pass
+    show_score=True to show them, each agent scored with its own rewards.
     """
     agents = list(agents)
     labels = list(labels) if labels is not None else [f"Agent {i + 1}" for i in range(len(agents))]
@@ -105,6 +106,7 @@ def playback_compare(agents, labels=None, maze=None, n_agents=1, seed=0, greedy=
                     max_steps=max_steps, task=task)[0]
         episodes.append({**ep, "title": label})
     kwargs.setdefault("cols", len(episodes))
+    kwargs.setdefault("show_score", False)
     return player.show(episodes, **kwargs)
 
 

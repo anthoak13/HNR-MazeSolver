@@ -81,7 +81,7 @@ def test_playback_compare_same_maze_and_labels(monkeypatch):
     monkeypatch.setattr(mz.player, "show", lambda eps, **k: (eps, k))
     runs = [_run("flag") for _ in range(3)]
     eps, kw = mz.playback_compare(runs, labels=["a", "b", "c"], seed=4, n_agents=2)
-    assert [e["title"] for e in eps] == ["a", "b", "c"] and kw["cols"] == 3
+    assert [e["title"] for e in eps] == ["a", "b", "c"] and kw["cols"] == 3 and kw["show_score"] is False
     assert all(e["grid"] == eps[0]["grid"] and len(e["agents"]) == 2 for e in eps)
     eps, _ = mz.playback_compare(runs[:2], maze="enclosed")
     assert [e["title"] for e in eps] == ["Agent 1", "Agent 2"]
