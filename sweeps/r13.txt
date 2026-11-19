@@ -1,0 +1,4 @@
+step_0.005_20k_s0 --episodes 20000 --seed 0 --reward step=0.005
+step_0.05_20k_s0 --episodes 20000 --seed 0 --reward step=0.05
+step_0.5_20k_s0 --episodes 20000 --seed 0 --reward step=0.5
+probe_bonus_20k_s0 --episodes 20000 --seed 0 --reward probe=0.01

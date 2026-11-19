@@ -927,3 +927,23 @@ everything else default (`sweeps/r12.txt`).
 - **At 20k the default agent's outside skill depends on the seed:** two of three never learned to leave
   the maze at all. Students who change the seed may see quite different baselines.
 - Shipped as `default_20k`, `explore_20k` and `outside_free_20k` (seed 0) for loading on a CPU.
+
+## Round 13: Step-reward agents and a wall-bump bonus (for a test question)
+A test question asks students to say which agents are reward hacking and to match each agent to the
+rewards it was trained with. Train three agents that differ only in the per-move reward (`step` = +0.005,
++0.05, +0.5), plus one with a wall-bump *bonus* (`probe` = +0.01 instead of −0.01). All four are seed 0 at
+20k attempts with everything else at the default, like the round 12 Part 4 agents, so they compare directly
+with `default_20k` (`sweeps/r13.txt`).
+
+**Reasoning:** attempts last at most 100 moves and the discount is 0.99. Over about 90 remaining moves, a
+per-move reward r is worth about 60·r. That's 0.3 at +0.005, 3 at +0.05 and 30 at +0.5, against 5 for the
+flag. Reaching the flag ends the attempt, so it also ends the per-move income.
+
+**Prediction:**
+- step +0.005: looks like `default_20k`. Open 85–95%, time to finish within 15% of default.
+- step +0.05: borderline. The flag still wins when it's close, so open success drops but stays above 40%.
+  Attempts get clearly longer (time to finish ≥ 1.3× default), with more time outside.
+- step +0.5: hacks. It avoids the flag (open under 10%) and runs out the clock, and wanders anywhere,
+  outside included (the −0.01 outside penalty is negligible).
+- probe +0.01: bumping a solid wall now pays and costs nothing, but 100 bumps are worth only 1 against the
+  flag's 5. Probes per attempt at least 2× default, and open success within 10 points of default.
