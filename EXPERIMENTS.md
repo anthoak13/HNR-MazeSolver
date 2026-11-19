@@ -1055,3 +1055,33 @@ end outside are left out of training, so an agent that never comes back gets no 
 - +0.005: still finishes most mazes (open ≥ 70%), moves outside on open ≥ 40.
 - +0.0075: uncertain; either in between (open 30–70%) or a full hack like +0.01.
 - At least one of the three is a usable in-between agent: open ≥ 70% and moves outside ≥ 3× `base`.
+
+**Result** (`runs/r15/`, 500 attempts per test, A30; `base` is `r11b/base_s0`, outside 0 is `r11/out_0_s0`,
+outside +0.01 is from round 14):
+
+| outside | Open | Weak spot | Out and back | p.6 flag | Left p.7 | Moves, open | Probes, open | Moves outside, open |
+|---|---|---|---|---|---|---|---|---|
+| −0.01 (`base`) | 99% | 94% | 98% | 36% | 27% | 46 | 7.0 | 5.3 |
+| 0 | 100% | 94% | 96% | 29% | 97% | 50 | 5.8 | 32.5 |
+| +0.0025 | 0% | 0% | 0% | 0% | 100% | 200 | 33 | 198.7 |
+| +0.005 | 0% | 0% | 0% | 0% | 100% | 200 | 92 | 199.7 |
+| +0.0075 | 0% | 0% | 0% | 0% | 100% | 200 | 169 | 199.8 |
+| +0.01 | 0% | 0% | 0% | 0% | 100% | 200 | 171 | 199.8 |
+
+| Prediction | Result |
+|---|---|
+| +0.0025 like outside 0, open ≥ 95% | ✗ hacks completely: 0% |
+| +0.005 open ≥ 70% | ✗ 0% |
+| +0.0075 in between or full hack | ✓ full hack |
+| at least one usable in-between agent | ✗ none |
+
+**What this shows:**
+- **Any positive outside reward, however small, makes the agent leave and never come back.** The
+  switch lies between 0 and +0.0025, where staying outside a whole attempt is worth at most about 0.2
+  against the flag's 5. The reward totals don't explain it.
+- The smaller the bonus, the more of the time outside the agent spends walking rather than bumping walls
+  (33 bumps at +0.0025, 171 at +0.01).
+- **`outside` = 0 (the shipped `outside_free`) is the only in-between outside agent:** it finishes every
+  open maze but spends 32.5 moves outside instead of 5.3.
+- Untested explanation: attempts that end outside are left out of training, so an agent that stays
+  out gets no signal to come back. Test: rerun +0.0025 with `exclude_bypass=False`.
