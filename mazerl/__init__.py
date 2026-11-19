@@ -5,7 +5,7 @@ Students set reward values, train agents, and watch what the agents learn.
 
 The main pieces:
   * train(), Rewards, Settings: train an agent with your own reward values
-  * playback(), training_grid(), show_maze(): watch agents (or a maze) in the animation player
+  * playback(), playback_compare(), training_grid(), show_maze(): watch agents (or a maze) in the animation player
   * evaluate(), breakout_stages(), score_breakdown(): measure what an agent does
   * load_pretrained(), load_perception(), list_pretrained(): runs trained ahead of time
   * pretrain_perception(): reward-free pretraining of the agent's vision
@@ -82,6 +82,30 @@ def playback(agent, maze=None, n_agents=1, seed=0, rewards=None, greedy=False, m
     episode = record(agent, [_one_maze(maze, seed)], n_agents=n_agents, rewards=rewards,
                      greedy=greedy, seed=seed, max_steps=max_steps, task=task)[0]
     return player.show(episode, **kwargs)
+
+
+def playback_compare(agents, labels=None, maze=None, n_agents=1, seed=0, greedy=False, **kwargs):
+    """Several agents side by side on the same maze, one panel each, sharing one clock.
+
+    agents: a list of agents (anything playback() takes), usually three.
+    labels: a heading for each panel (default "Agent 1", "Agent 2", ...).
+    maze: a Maze, a test maze's name, or None for one random layout (from ``seed``) used in every panel.
+    Every panel uses the same ``seed``, so differences come from the agents, not from luck.
+    Each agent is scored with its own rewards.
+    """
+    agents = list(agents)
+    labels = list(labels) if labels is not None else [f"Agent {i + 1}" for i in range(len(agents))]
+    if len(labels) != len(agents):
+        raise ValueError(f"got {len(agents)} agents but {len(labels)} labels")
+    maze = _one_maze(maze, seed)
+    episodes = []
+    for agent, label in zip(agents, labels):
+        agent, rewards, max_steps, task = _unpack(agent)
+        ep = record(agent, [maze], n_agents=n_agents, rewards=rewards, greedy=greedy, seed=seed,
+                    max_steps=max_steps, task=task)[0]
+        episodes.append({**ep, "title": label})
+    kwargs.setdefault("cols", len(episodes))
+    return player.show(episodes, **kwargs)
 
 
 def training_grid(run, n_mazes=3, stages=None, seed=0, **kwargs):

@@ -75,3 +75,15 @@ def test_score_breakdown_with_run():
     pts = mz.score_breakdown(_run("escape"), maze="enclosed", plot=False)
     assert "per move" not in pts
     assert list(pts)[-1] == "total"
+
+
+def test_playback_compare_same_maze_and_labels(monkeypatch):
+    monkeypatch.setattr(mz.player, "show", lambda eps, **k: (eps, k))
+    runs = [_run("flag") for _ in range(3)]
+    eps, kw = mz.playback_compare(runs, labels=["a", "b", "c"], seed=4, n_agents=2)
+    assert [e["title"] for e in eps] == ["a", "b", "c"] and kw["cols"] == 3
+    assert all(e["grid"] == eps[0]["grid"] and len(e["agents"]) == 2 for e in eps)
+    eps, _ = mz.playback_compare(runs[:2], maze="enclosed")
+    assert [e["title"] for e in eps] == ["Agent 1", "Agent 2"]
+    with pytest.raises(ValueError):
+        mz.playback_compare(runs, labels=["a"])
