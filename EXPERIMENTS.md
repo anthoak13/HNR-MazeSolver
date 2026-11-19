@@ -948,3 +948,31 @@ flag. Reaching the flag ends the attempt, so it also ends the per-move income.
   outside included (the −0.01 outside penalty is negligible).
 - probe +0.01: bumping a solid wall now pays and costs nothing, but 100 bumps are worth only 1 against the
   flag's 5. Probes per attempt at least 2× default, and open success within 10 points of default.
+
+**Result** (`runs/r13/`, 500 attempts per test, 4.5–7 min each on an A30; `base` is `r11b/base_s0`):
+
+| Run | Open | Weak spot | Out and back | p.6 flag | Left p.7 | Moves, open | Probes, open | Moves outside, open | Score, open |
+|---|---|---|---|---|---|---|---|---|---|
+| `base` | 99.4% | 94.0% | 97.6% | 35.8% | 26.8% | 46.2 | 7.0 | 5.3 | 5.01 |
+| step +0.005 | 99.6% | 93.4% | 98.2% | 51.2% | 11.8% | 45.2 | 6.6 | 5.0 | 5.26 |
+| step +0.05 | 0% | 0% | 0% | 0% | 100% | 200 | 170 | 199.8 | 6.33 |
+| step +0.5 | 0% | 0% | 0% | 0% | 100% | 200 | 156 | 199.7 | 96.5 |
+| probe +0.01 | 99.0% | 91.2% | 97.8% | 15.0% | 43.4% | 49.4 | 10.9 | 5.7 | 5.18 |
+
+| Prediction | Result |
+|---|---|
+| step +0.005 looks like `base` | ✓ within 1 point on trained kinds, same length |
+| step +0.05 borderline, open above 40% | ✗ hacks completely: 0% everywhere |
+| step +0.5 hacks, open under 10% | ✓ 0%; leaves at once and uses all 200 moves outside |
+| probe +0.01: probes ≥ 2× default, open within 10 points | ✗ / ✓ probes only 1.6× (10.9 vs 7.0); open 99% |
+
+**Why the +0.05 prediction failed:** attempts last 200 moves, not 100 (`Settings.max_steps`), so the
+per-move income is worth about 8.6 at +0.05 against the flag's 5.
+
+**What this shows:**
+- **The per-move reward has a sharp threshold** between +0.005 and +0.05. Below it, nothing changes; above
+  it, the agent walks straight out of the maze and spends the whole attempt bumping the outer walls.
+- **At +0.05 and +0.5 the two agents behave the same.** Only the score tells them apart (6.3 vs 96.5).
+- **The wall-bump bonus barely shows:** about 4 more bumps per open maze and slightly slower runs. It
+  leaves the p.7 maze more (43% vs 27%) and reaches the p.6 flag less (15% vs 36%), but p.6 varies a lot
+  between seeds.
